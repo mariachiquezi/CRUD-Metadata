@@ -1,4 +1,4 @@
-from app.contracts.contract_parser import ContractParser
+from app.utils.contract_parser import ContractParser
 from app.validators.contract_validator import ContractValidator
 from app.services.metadata_service import MetadataService
 from app.models.metadata import MetadataCreate
@@ -9,16 +9,12 @@ class ContractService:
     def __init__(self):
         self.metadata_service = MetadataService()
 
-    def process(self, content: str):
+    def process(self, content: str, changed_by: str):
         contract = ContractParser.parse(content)
-
         ContractValidator.validate(contract)
-
         metadata = self._to_metadata(contract)
-
         metadata = MetadataCreate(**metadata)
-
-        return self.metadata_service.create(metadata)
+        return self.metadata_service.create(metadata, changed_by)
 
     def _to_metadata(self, contract):
         data = contract.contract
@@ -84,8 +80,6 @@ class ContractService:
             ),
 
             "contract_name": data.name,
-
             "contract_version": getattr(data, "version", None),
-
             "tags": [],
         }

@@ -13,7 +13,10 @@ class MetadataValidator:
             raise ValueError("Campo 'table_name' é obrigatório.")
 
         owner_info = payload.get("owner_info")
-        if not isinstance(owner_info, dict) or not str(owner_info.get("team") or "").strip():
+        if (
+            not isinstance(owner_info, dict)
+            or not str(owner_info.get("team") or "").strip()
+        ):
             raise ValueError("Campo 'owner_info.team' é obrigatório.")
 
         schema = payload.get("schema")
@@ -23,7 +26,9 @@ class MetadataValidator:
         field_names = set()
         for field in schema:
             if not isinstance(field, dict):
-                raise ValueError("Cada item do schema deve ser um objeto com 'name' e 'type'.")
+                raise ValueError(
+                    "Cada item do schema deve ser um objeto com 'name' e 'type'."
+                )
 
             field_name = str(field.get("name") or "").strip()
             field_type = str(field.get("type") or "").strip().lower()
@@ -69,11 +74,17 @@ class MetadataValidator:
 
                 for item in completeness:
                     if not isinstance(item, dict):
-                        raise ValueError("Cada regra de completeness deve ser um objeto.")
+                        raise ValueError(
+                            "Cada regra de completeness deve ser um objeto."
+                        )
                     threshold = item.get("threshold")
                     if threshold is None:
-                        raise ValueError("Campo 'quality.completeness[].threshold' é obrigatório.")
-                    if not isinstance(threshold, (int, float)) or not (0 <= float(threshold) <= 100):
+                        raise ValueError(
+                            "Campo 'quality.completeness[].threshold' é obrigatório."
+                        )
+                    if not isinstance(threshold, (int, float)) or not (
+                        0 <= float(threshold) <= 100
+                    ):
                         raise ValueError(
                             "Campo 'quality.completeness[].threshold' deve estar entre 0 e 100."
                         )
@@ -83,7 +94,9 @@ class MetadataValidator:
                 if not isinstance(freshness, dict):
                     raise ValueError("Campo 'quality.freshness' deve ser um objeto.")
                 if not str(freshness.get("max_delay") or "").strip():
-                    raise ValueError("Campo 'quality.freshness.max_delay' é obrigatório.")
+                    raise ValueError(
+                        "Campo 'quality.freshness.max_delay' é obrigatório."
+                    )
 
         tags = payload.get("tags")
         if tags is not None:

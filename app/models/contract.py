@@ -38,7 +38,7 @@ class CompletenessRule(BaseModel):
 
 class Quality(BaseModel):
     freshness: Optional[Freshness] = None
-    completeness: List[CompletenessRule] = []
+    completeness: List[CompletenessRule] = Field(default_factory=list)
 
 
 class Classification(BaseModel):
@@ -52,21 +52,13 @@ class Lifecycle(BaseModel):
 class ContractDefinition(BaseModel):
     name: str
     version: str
-
     data_product: Optional[DataProduct] = None
-
     ownership: Ownership
-
     source: Source
-
     domain: str
-
     schema: List[ContractField]
-
     quality: Optional[Quality] = None
-
     classification: Optional[Classification] = None
-
     lifecycle: Optional[Lifecycle] = None
 
 
