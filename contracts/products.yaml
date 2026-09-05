@@ -1,0 +1,61 @@
+contract:
+  name: products
+  version: "1.0"
+
+  data_product:
+    name: product-catalog
+    description: "Catalogo de produtos disponiveis para venda"
+
+  ownership:
+    owner: merchandising
+    steward: catalog-team
+
+  source:
+    system: erp
+    type: database
+    database: product_db
+    table: products
+
+  domain: product
+
+  schema:
+    - name: product_id
+      type: string
+      nullable: false
+      unique: true
+      description: "Identificador unico do produto"
+    - name: sku
+      type: string
+      nullable: false
+      unique: true
+      description: "Codigo comercial do produto"
+    - name: product_name
+      type: string
+      nullable: false
+      unique: false
+      description: "Nome do produto"
+    - name: price
+      type: float
+      nullable: false
+      unique: false
+      description: "Preco atual do produto"
+    - name: active
+      type: boolean
+      nullable: false
+      unique: false
+      description: "Indica se o produto esta ativo"
+
+  quality:
+    freshness:
+      max_delay: "6h"
+    completeness:
+      - field: product_id
+        threshold: 100
+      - field: sku
+        threshold: 100
+
+  classification:
+    data_classification: internal
+
+  lifecycle:
+    status: active
