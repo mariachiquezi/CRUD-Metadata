@@ -34,8 +34,64 @@ class MetadataService:
             return dt.replace(tzinfo=timezone.utc)
         return dt.astimezone(timezone.utc)
 
+    @staticmethod
+    def _data_asset_key(data: dict) -> Optional[str]:
+        if data.get("data_asset_key"):
+            return str(data["data_asset_key"])
+
+        asset = data.get("data_asset") or {}
+        asset_name = asset.get("name") or data.get("table_name")
+        domain = data.get("business_domain") or data.get("domain")
+        if not asset_name:
+            return None
+        return f"{domain}.{asset_name}" if domain else str(asset_name)
+
+    @staticmethod
+    def _normalize_asset_data(data: dict) -> dict:
+        ownership = data.get("ownership")
+        if ownership and not data.get("owner_info"):
+            data["owner_info"] = {
+                "team": ownership["owner"],
+                "email": None,
+            }
+
+        source = data.get("source")
+        if source:
+            if not data.get("source_system"):
+                data["source_system"] = source["system"]
+            if not data.get("source_type"):
+                data["source_type"] = source["type"]
+
+        asset = data.get("data_asset")
+        if asset and not data.get("table_name"):
+            data["table_name"] = asset["name"]
+        elif data.get("table_name") and not asset:
+            data["data_asset"] = {
+                "name": data["table_name"],
+                "type": "table",
+            }
+        return data
+
     def create(self, payload: MetadataCreate, changed_by: str = "system") -> MetadataOut:
-        data = payload.model_dump()
+        data = self._normalize_asset_data(payload.model_dump(by_alias=True))
+        data["data_asset_key"] = self._data_asset_key(data)
+
+        if data["data_asset_key"]:
+            find_by_asset = getattr(self.repository, "get_by_data_asset_key", None)
+            current = (
+                find_by_asset(data["data_asset_key"])
+                if find_by_asset is not None
+                else None
+            )
+        else:
+            current = None
+        if current is None and payload.contract_name:
+            current = self.repository.get_by_contract_name(payload.contract_name)
+        if current is not None:
+            data.pop("data_asset_key", None)
+            update_payload = MetadataUpdate(**data)
+            return self.update(current["_id"], update_payload, changed_by)
+
         MetadataValidator.validate(data)
 
         now = self._now_utc()
@@ -46,6 +102,8 @@ class MetadataService:
         history_entry = MetadataVersionEntry(
             version=int(data.get("version", 1) or 1),
             metadata_id=str(uuid4()),
+            data_asset=data.get("data_asset"),
+            data_asset_key=data.get("data_asset_key"),
             table_name=data.get("table_name"),
             description=data.get("description"),
             schema=data.get("schema", []),
@@ -68,9 +126,14 @@ class MetadataService:
         document = self.repository.create(
             {**data, "_id": history_entry.metadata_id}
         )
-        self.repository.create_history_entry(history_entry.model_dump())
+        self.repository.create_history_entry(history_entry.model_dump(by_alias=True))
 
         return self._to_response(document)
+
+    def create_or_update_contract(
+        self, payload: MetadataCreate, changed_by: str = "system"
+    ) -> MetadataOut:
+        return self.create(payload, changed_by)
 
     def list(
         self,
@@ -116,10 +179,12 @@ class MetadataService:
             return None
 
         update_data = payload.model_dump(
-            exclude={"version"}, exclude_unset=not replace
+            by_alias=True, exclude={"version"}, exclude_unset=not replace
         )
+        update_data = self._normalize_asset_data(update_data)
 
         merged = {**current, **update_data}
+        merged["data_asset_key"] = self._data_asset_key(merged)
         MetadataValidator.validate(merged)
 
         current_version = int(current.get("version", 0) or 0)
@@ -128,6 +193,8 @@ class MetadataService:
         history_entry = MetadataVersionEntry(
             version=next_version,
             metadata_id=metadata_id,
+            data_asset=merged.get("data_asset"),
+            data_asset_key=merged.get("data_asset_key"),
             table_name=merged.get("table_name"),
             description=merged.get("description"),
             schema=merged.get("schema", []),
@@ -146,9 +213,10 @@ class MetadataService:
             changed_by=changed_by,
             change_type="UPDATE",
         )
-        self.repository.create_history_entry(history_entry.model_dump())
+        self.repository.create_history_entry(history_entry.model_dump(by_alias=True))
 
         update_data["version"] = next_version
+        update_data["data_asset_key"] = merged["data_asset_key"]
         update_data["updated_at"] = self._now_utc()
 
         updated = self.repository.update(metadata_id, update_data)
@@ -167,11 +235,13 @@ class MetadataService:
         self, documents: List[dict]
     ) -> List[MetadataVersionEntry]:
         normalized = []
-        for document in documents:
+        for source_document in documents:
+            document = dict(source_document)
             if document.get("changed_at") is not None:
                 document["changed_at"] = self._to_utc(document["changed_at"])
             if document.get("deleted_at") is not None:
                 document["deleted_at"] = self._to_utc(document["deleted_at"])
+            document.setdefault("changed_by", "system")
             normalized.append(MetadataVersionEntry.model_validate(document))
         return normalized
 
@@ -184,6 +254,8 @@ class MetadataService:
         deletion_entry = MetadataVersionEntry(
             version=int(current.get("version", 0) or 0) + 1,
             metadata_id=metadata_id,
+            data_asset=current.get("data_asset"),
+            data_asset_key=current.get("data_asset_key"),
             table_name=current.get("table_name"),
             description=current.get("description"),
             schema=current.get("schema", []),
@@ -205,7 +277,7 @@ class MetadataService:
             changed_by=deleted_by,
             change_type="DELETE",
         )
-        self.repository.create_history_entry(deletion_entry.model_dump())
+        self.repository.create_history_entry(deletion_entry.model_dump(by_alias=True))
         return self.repository.delete(metadata_id, deleted_by)
 
     @staticmethod
@@ -214,6 +286,8 @@ class MetadataService:
         return MetadataOut(
             id=str(document["_id"]),
             version=int(document.get("version", 1) or 1),
+            data_asset=document.get("data_asset"),
+            data_asset_key=document.get("data_asset_key"),
             table_name=document["table_name"],
             description=document.get("description"),
             business_domain=document.get("business_domain"),

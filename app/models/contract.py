@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, List
 
 
@@ -18,6 +18,11 @@ class Ownership(BaseModel):
 class DataProduct(BaseModel):
     name: str
     description: Optional[str] = None
+
+
+class DataAsset(BaseModel):
+    name: str
+    type: str = "table"
 
 
 class Source(BaseModel):
@@ -50,13 +55,16 @@ class Lifecycle(BaseModel):
 
 
 class ContractDefinition(BaseModel):
-    name: str
+    model_config = ConfigDict(populate_by_name=True)
+
+    data_asset: Optional[DataAsset] = None
+    name: Optional[str] = None
     version: str
     data_product: Optional[DataProduct] = None
     ownership: Ownership
     source: Source
     domain: str
-    schema: List[ContractField]
+    schema_: List[ContractField] = Field(..., alias="schema")
     quality: Optional[Quality] = None
     classification: Optional[Classification] = None
     lifecycle: Optional[Lifecycle] = None

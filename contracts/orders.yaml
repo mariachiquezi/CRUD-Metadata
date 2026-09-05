@@ -1,5 +1,7 @@
 contract:
-  name: orders
+  data_asset:
+    name: orders
+    type: table
   version: "1.0"
 
   data_product:
@@ -14,7 +16,6 @@ contract:
     system: ecommerce
     type: database
     database: commerce_db
-    table: orders
 
   domain: commerce
 

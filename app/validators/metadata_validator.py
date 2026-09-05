@@ -2,15 +2,16 @@ from typing import Any, Dict
 
 
 class MetadataValidator:
-    ALLOWED_TYPES = {"string", "integer", "float", "boolean", "date", "datetime"}
     ALLOWED_SOURCE_TYPES = {"database", "api", "file", "stream"}
-    ALLOWED_LIFECYCLE_STATUS = {"active", "deprecated", "draft"}
+    ALLOWED_LIFECYCLE_STATUS = {"active", "ativo", "deprecated", "draft"}
 
     @staticmethod
     def validate(payload: Dict[str, Any]) -> None:
         table_name = str(payload.get("table_name") or "").strip()
         if not table_name:
             raise ValueError("Campo 'table_name' é obrigatório.")
+        if table_name.lower() == "string":
+            raise ValueError("Campo 'table_name' deve identificar uma tabela real.")
 
         owner_info = payload.get("owner_info")
         if (
@@ -18,6 +19,8 @@ class MetadataValidator:
             or not str(owner_info.get("team") or "").strip()
         ):
             raise ValueError("Campo 'owner_info.team' é obrigatório.")
+        if str(owner_info.get("team") or "").strip().lower() == "string":
+            raise ValueError("Campo 'owner_info.team' deve identificar um time real.")
 
         schema = payload.get("schema")
         if not isinstance(schema, list) or not schema:
@@ -31,16 +34,15 @@ class MetadataValidator:
                 )
 
             field_name = str(field.get("name") or "").strip()
-            field_type = str(field.get("type") or "").strip().lower()
+            field_type = str(field.get("type") or "").strip()
 
             if not field_name:
                 raise ValueError("Campo 'schema[].name' é obrigatório.")
+            if field_name.lower() == "string":
+                raise ValueError("Campo 'schema[].name' deve identificar um campo real.")
 
-            if field_type not in MetadataValidator.ALLOWED_TYPES:
-                raise ValueError(
-                    f"tipo inválido para '{field_name}': '{field.get('type')}'. "
-                    "Tipos aceitos: string, integer, float, boolean, date, datetime."
-                )
+            if not field_type:
+                raise ValueError(f"Campo 'schema[].type' é obrigatório para '{field_name}'.")
 
             if field_name in field_names:
                 raise ValueError(f"Campo duplicado no schema: {field_name}")
@@ -59,7 +61,8 @@ class MetadataValidator:
             status = str(lifecycle.get("status") or "").strip().lower()
             if status and status not in MetadataValidator.ALLOWED_LIFECYCLE_STATUS:
                 raise ValueError(
-                    f"Status inválido para 'lifecycle.status': '{lifecycle.get('status')}'."
+                    f"Status inválido para 'lifecycle.status': '{lifecycle.get('status')}'. "
+                    "Valores aceitos: active, ativo, deprecated, draft."
                 )
 
         quality = payload.get("quality")

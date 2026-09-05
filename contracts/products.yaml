@@ -1,5 +1,7 @@
 contract:
-  name: products
+  data_asset:
+    name: products
+    type: table
   version: "1.0"
 
   data_product:
@@ -14,7 +16,6 @@ contract:
     system: erp
     type: database
     database: product_db
-    table: products
 
   domain: product
 

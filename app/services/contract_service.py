@@ -14,13 +14,23 @@ class ContractService:
         ContractValidator.validate(contract)
         metadata = self._to_metadata(contract)
         metadata = MetadataCreate(**metadata)
-        return self.metadata_service.create(metadata, changed_by)
+        return self.metadata_service.create_or_update_contract(metadata, changed_by)
 
     def _to_metadata(self, contract):
         data = contract.contract
+        asset_name = (
+            data.data_asset.name
+            if data.data_asset
+            else data.source.table or data.name
+        )
+        asset_type = data.data_asset.type if data.data_asset else "table"
 
         return {
-            "table_name": data.source.table or data.name,
+            "data_asset": {
+                "name": asset_name,
+                "type": asset_type,
+            },
+            "table_name": asset_name,
 
             "description": (
                 data.data_product.description
@@ -38,7 +48,7 @@ class ContractService:
                     "nullable": field.nullable,
                     "unique": field.unique,
                 }
-                for field in data.schema
+                for field in data.schema_
             ],
 
             "owner_info": {
@@ -79,7 +89,7 @@ class ContractService:
                 else None
             ),
 
-            "contract_name": data.name,
+            "contract_name": asset_name,
             "contract_version": getattr(data, "version", None),
             "tags": [],
         }

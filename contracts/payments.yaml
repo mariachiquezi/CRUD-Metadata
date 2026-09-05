@@ -1,5 +1,7 @@
 contract:
-  name: payments
+  data_asset:
+    name: payments
+    type: table
   version: "1.0"
 
   data_product:
@@ -14,7 +16,6 @@ contract:
     system: payment-gateway
     type: api
     database: finance_db
-    table: payments
 
   domain: finance
 

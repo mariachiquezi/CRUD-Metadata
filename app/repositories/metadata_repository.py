@@ -16,8 +16,17 @@ class MetadataRepository:
         self.history_collection = mongo_database.get_collection(self.history_collection_name)
 
     def create_indexes(self) -> None:
+        drop_index = getattr(self.metadata_collection, "drop_index", None)
+        if drop_index is not None:
+            try:
+                drop_index("contract_name_1_contract_version_1")
+            except Exception:
+                pass
+
         self.metadata_collection.create_index(
-            [("contract_name", 1), ("contract_version", 1)], unique=True
+            "data_asset_key",
+            unique=True,
+            partialFilterExpression={"data_asset_key": {"$exists": True}},
         )
         self.history_collection.create_index(
             [("metadata_id", 1), ("version", 1)], unique=True
@@ -50,6 +59,12 @@ class MetadataRepository:
 
     def get_by_id(self, metadata_id: str) -> Optional[Dict[str, Any]]:
         return self.metadata_collection.find_one({"_id": metadata_id})
+
+    def get_by_contract_name(self, contract_name: str) -> Optional[Dict[str, Any]]:
+        return self.metadata_collection.find_one({"contract_name": contract_name})
+
+    def get_by_data_asset_key(self, data_asset_key: str) -> Optional[Dict[str, Any]]:
+        return self.metadata_collection.find_one({"data_asset_key": data_asset_key})
 
     def update(
         self, metadata_id: str, data: Dict[str, Any]

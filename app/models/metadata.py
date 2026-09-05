@@ -2,7 +2,7 @@ from datetime import datetime
 import re
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class SchemaField(BaseModel):
@@ -30,6 +30,23 @@ class DataProduct(BaseModel):
     description: Optional[str] = None
 
 
+class DataAsset(BaseModel):
+    name: str = Field(..., min_length=1)
+    type: str = Field(default="table", min_length=1)
+
+
+class Ownership(BaseModel):
+    owner: str = Field(..., min_length=1)
+    steward: Optional[str] = None
+
+
+class Source(BaseModel):
+    system: str = Field(..., min_length=1)
+    type: str = Field(..., min_length=1)
+    database: Optional[str] = None
+    table: Optional[str] = None
+
+
 class Freshness(BaseModel):
     max_delay: str = Field(..., min_length=1)
 
@@ -53,14 +70,20 @@ class Lifecycle(BaseModel):
 
 
 class MetadataCreate(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     version: int = 1
-    table_name: str = Field(..., min_length=1)
+    data_asset: Optional[DataAsset] = None
+    data_asset_key: Optional[str] = None
+    table_name: Optional[str] = Field(default=None, min_length=1)
     description: Optional[str] = None
     business_domain: Optional[str] = None
     domain: Optional[str] = None
-    schema: List[SchemaField] = Field(default_factory=list)
+    schema_: List[SchemaField] = Field(default_factory=list, alias="schema")
     tags: List[str] = Field(default_factory=list)
-    owner_info: OwnerInfo
+    ownership: Optional[Ownership] = None
+    owner_info: Optional[OwnerInfo] = None
+    source: Optional[Source] = None
     source_system: Optional[str] = None
     source_type: Optional[str] = None
     freshness: Optional[str] = None
@@ -74,14 +97,19 @@ class MetadataCreate(BaseModel):
 
 
 class MetadataUpdate(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
 
-    table_name: Optional[str] = None
+    data_asset: Optional[DataAsset] = None
+    data_asset_key: Optional[str] = None
+    table_name: Optional[str] = Field(default=None, min_length=1)
     description: Optional[str] = None
     business_domain: Optional[str] = None
     domain: Optional[str] = None
-    schema: Optional[List[SchemaField]] = None
+    schema_: Optional[List[SchemaField]] = Field(default=None, alias="schema")
     tags: Optional[List[str]] = None
+    ownership: Optional[Ownership] = None
     owner_info: Optional[OwnerInfo] = None
+    source: Optional[Source] = None
     source_system: Optional[str] = None
     source_type: Optional[str] = None
     freshness: Optional[str] = None
@@ -95,13 +123,17 @@ class MetadataUpdate(BaseModel):
 
 
 class MetadataOut(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     id: str
     version: int = 1
+    data_asset: Optional[DataAsset] = None
+    data_asset_key: Optional[str] = None
     table_name: str
     description: Optional[str] = None
     business_domain: Optional[str] = None
     domain: Optional[str] = None
-    schema: List[SchemaField] = Field(default_factory=list)
+    schema_: List[SchemaField] = Field(default_factory=list, alias="schema")
     tags: List[str] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
@@ -126,11 +158,15 @@ class MetadataListResponse(BaseModel):
 
 
 class MetadataVersionEntry(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     version: int
     metadata_id: str
+    data_asset: Optional[DataAsset] = None
+    data_asset_key: Optional[str] = None
     table_name: Optional[str] = None
     description: Optional[str] = None
-    schema: List[SchemaField] = Field(default_factory=list)
+    schema_: List[SchemaField] = Field(default_factory=list, alias="schema")
     tags: List[str] = Field(default_factory=list)
     owner_info: Optional[OwnerInfo] = None
     source_system: Optional[str] = None

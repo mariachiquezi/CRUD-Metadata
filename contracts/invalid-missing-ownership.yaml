@@ -1,5 +1,7 @@
 contract:
-  name: inventory
+  data_asset:
+    name: inventory
+    type: table
   version: "1.0"
 
   data_product:
@@ -10,7 +12,6 @@ contract:
     system: erp
     type: database
     database: inventory_db
-    table: inventory
 
   domain: logistics
 

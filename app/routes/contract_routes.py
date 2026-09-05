@@ -1,6 +1,6 @@
 import asyncio
 
-from fastapi import APIRouter, Depends, UploadFile, File
+from fastapi import APIRouter, Depends, UploadFile, File, Response
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 from pymongo.errors import DuplicateKeyError
@@ -31,6 +31,7 @@ def _validation_detail(error: ValidationError) -> str:
 async def upload_contracts(
     files: list[UploadFile] = File(...),
     current_user: dict = Depends(get_current_user),
+    response: Response = None,
 ):
     if not files or len(files) > MAX_BULK_FILES:
         raise ValueError(f"Envie entre 1 e {MAX_BULK_FILES} contratos por lote.")
@@ -77,5 +78,8 @@ async def upload_contracts(
     results = await asyncio.gather(
         *(process_file(file, content) for file, content in zip(files, contents))
     )
+
+    if any(item["status"] == "error" for item in results):
+        response.status_code = 207
 
     return {"items": results, "total": len(results)}
