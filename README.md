@@ -64,7 +64,6 @@ GET    /health/ready
 - [Guia completo da aplicação](app/README.md)
 - [Arquitetura e fluxo](docs/architecture.md)
 - [Contrato de dados YAML](docs/data-contract.md)
-- [Decisão sobre identidade do ativo](docs/adr/0001-data-asset-identity.md)
 
 ## Testes e qualidade
 

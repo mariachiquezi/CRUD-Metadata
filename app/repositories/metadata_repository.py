@@ -69,7 +69,6 @@ class MetadataRepository:
         return document
 
     def update(self, metadata_id: str, data: dict[str, Any]) -> dict[str, Any] | None:
-        # `_id` identifica o documento no MongoDB e não pode fazer parte do `$set`.
         changes = {key: value for key, value in data.items() if key != "_id"}
         return self.metadata_collection.find_one_and_update(
             {"_id": metadata_id},
