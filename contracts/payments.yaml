@@ -3,6 +3,8 @@ contract:
     name: payments
     type: table
   version: "1.0"
+  description: Pagamentos associados aos pedidos e seus estados de processamento.
+  tags: [finance, payments]
 
   data_product:
     name: payment-platform
@@ -15,7 +17,7 @@ contract:
   source:
     system: payment-gateway
     type: api
-    database: finance_db
+    location: https://payments.example.com/v1/payments
 
   domain: finance
 
@@ -31,7 +33,7 @@ contract:
       unique: false
       description: "Pedido relacionado ao pagamento"
     - name: amount
-      type: float
+      type: decimal
       nullable: false
       unique: false
       description: "Valor da transacao"

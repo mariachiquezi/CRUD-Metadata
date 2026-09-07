@@ -1,5 +1,5 @@
-from datetime import datetime, timedelta, timezone
-from typing import Callable
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 
 import jwt
 from fastapi import Depends, HTTPException, status
@@ -19,7 +19,7 @@ def authenticate_user(username: str, password: str) -> dict[str, str] | None:
 
 
 def create_access_token(user: dict[str, str]) -> str:
-    expires_at = datetime.now(timezone.utc) + timedelta(
+    expires_at = datetime.now(UTC) + timedelta(
         minutes=settings.access_token_expire_minutes
     )
     payload = {"sub": user["username"], "role": user["role"], "exp": expires_at}
@@ -47,13 +47,14 @@ def get_current_user(
             credentials.credentials,
             settings.jwt_secret_key,
             algorithms=[settings.jwt_algorithm],
+            options={"require": ["exp", "sub", "role"]},
         )
         username = payload.get("sub")
         role = payload.get("role")
         if not isinstance(username, str) or not isinstance(role, str):
             raise credentials_exception
     except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
-        raise credentials_exception
+        raise credentials_exception from None
 
     return {"username": username, "role": role}
 

@@ -4,6 +4,8 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from pymongo.errors import DuplicateKeyError
 
+from app.exceptions.domain import DomainError
+
 
 def register_exception_handlers(app: FastAPI) -> None:
     def format_validation_errors(errors) -> str:
@@ -55,5 +57,11 @@ def register_exception_handlers(app: FastAPI) -> None:
     ) -> JSONResponse:
         return JSONResponse(
             status_code=409,
-            content={"detail": "Já existe um contrato com esse nome e versão."},
+            content={"detail": "Já existe um registro com essa identidade."},
         )
+
+    @app.exception_handler(DomainError)
+    async def domain_error_handler(
+        request: Request, exc: DomainError
+    ) -> JSONResponse:
+        return JSONResponse(status_code=409, content={"detail": str(exc)})

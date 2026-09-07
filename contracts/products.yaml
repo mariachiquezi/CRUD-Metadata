@@ -3,6 +3,8 @@ contract:
     name: products
     type: table
   version: "1.0"
+  description: Produtos disponíveis para venda, com SKU, preço e estado de ativação.
+  tags: [product, catalog]
 
   data_product:
     name: product-catalog
@@ -36,7 +38,7 @@ contract:
       unique: false
       description: "Nome do produto"
     - name: price
-      type: float
+      type: decimal
       nullable: false
       unique: false
       description: "Preco atual do produto"

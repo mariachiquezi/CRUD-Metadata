@@ -3,6 +3,8 @@ contract:
     name: orders
     type: table
   version: "1.0"
+  description: Pedidos realizados pelos clientes, com identificadores e valor total.
+  tags: [commerce, orders]
 
   data_product:
     name: order-platform
@@ -31,7 +33,7 @@ contract:
       unique: false
       description: "Identificador do cliente"
     - name: total_amount
-      type: float
+      type: decimal
       nullable: false
       unique: false
       description: "Valor total do pedido"
