@@ -1,74 +1,75 @@
-from pydantic import BaseModel, ConfigDict, Field
-from typing import Optional, List
+from typing import Any, Literal
+
+from pydantic import Field, model_validator
+
+from app.domain.versioning import version_parts
+from app.models.data_asset import (
+    Classification,
+    DataAsset,
+    DataProduct,
+    InputModel,
+    Lifecycle,
+    Ownership,
+    Quality,
+    SchemaField,
+    Source,
+    Tag,
+)
+from app.models.metadata import MetadataOut
+from app.validators.schema_validator import validate_schema
 
 
-class ContractField(BaseModel):
-    name: str
-    type: str
-    nullable: bool = True
-    unique: bool = False
-    description: Optional[str] = None
-
-
-class Ownership(BaseModel):
-    owner: str
-    steward: Optional[str] = None
-
-
-class DataProduct(BaseModel):
-    name: str
-    description: Optional[str] = None
-
-
-class DataAsset(BaseModel):
-    name: str
-    type: str = "table"
-
-
-class Source(BaseModel):
-    system: str
-    type: str
-    database: Optional[str] = None
-    table: Optional[str] = None
-
-
-class Freshness(BaseModel):
-    max_delay: str
-
-
-class CompletenessRule(BaseModel):
-    field: str
-    threshold: float = Field(ge=0, le=100)
-
-
-class Quality(BaseModel):
-    freshness: Optional[Freshness] = None
-    completeness: List[CompletenessRule] = Field(default_factory=list)
-
-
-class Classification(BaseModel):
-    data_classification: str
-
-
-class Lifecycle(BaseModel):
-    status: str
-
-
-class ContractDefinition(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
-    data_asset: Optional[DataAsset] = None
-    name: Optional[str] = None
-    version: str
-    data_product: Optional[DataProduct] = None
+class ContractDefinition(InputModel):
+    data_asset: DataAsset
+    version: str = Field(min_length=1)
+    description: str | None = None
+    data_product: DataProduct | None = None
     ownership: Ownership
     source: Source
-    domain: str
-    schema_: List[ContractField] = Field(..., alias="schema")
-    quality: Optional[Quality] = None
-    classification: Optional[Classification] = None
-    lifecycle: Optional[Lifecycle] = None
+    domain: str = Field(min_length=1)
+    schema_: list[SchemaField] = Field(alias="schema")
+    tags: list[Tag] = Field(default_factory=list)
+    quality: Quality | None = None
+    classification: Classification | None = None
+    lifecycle: Lifecycle | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_legacy_identity(cls, value):
+        if not isinstance(value, dict):
+            return value
+        data = dict(value)
+        legacy_name = data.pop("name", None)
+        asset = data.get("data_asset")
+        if isinstance(asset, dict) and legacy_name is not None:
+            if str(asset.get("name", "")).strip() != str(legacy_name).strip():
+                raise ValueError("name e data_asset.name devem identificar o mesmo ativo.")
+        if not asset:
+            source = data.get("source")
+            name = legacy_name or (source.get("table") if isinstance(source, dict) else None)
+            if name:
+                data["data_asset"] = {"name": name, "type": "table"}
+        return data
+
+    @model_validator(mode="after")
+    def validate_definition(self):
+        version_parts(self.version)
+        validate_schema(self.schema_, self.quality)
+        return self
 
 
-class DataContract(BaseModel):
+class DataContract(InputModel):
     contract: ContractDefinition
+
+
+class ContractBulkItem(InputModel):
+    filename: str | None = None
+    status: Literal["success", "error"]
+    status_code: int
+    metadata: MetadataOut | None = None
+    detail: Any | None = None
+
+
+class ContractBulkResponse(InputModel):
+    items: list[ContractBulkItem]
+    total: int

@@ -1,310 +1,260 @@
-from datetime import datetime, timezone
-from typing import List, Optional
+from __future__ import annotations
+
+import builtins
+from datetime import UTC, datetime
+from typing import Literal
 from uuid import uuid4
 
+from app.domain.schema_compatibility import validate_schema_compatibility
+from app.domain.versioning import (
+    is_major_version_upgrade,
+    validate_next_contract_version,
+    version_parts,
+)
+from app.exceptions.domain import DomainError
 from app.models.metadata import (
     MetadataCreate,
     MetadataOut,
+    MetadataReplace,
     MetadataUpdate,
     MetadataVersionEntry,
 )
+from app.repositories.protocols import MetadataRepositoryProtocol
+from app.validators.metadata_validator import MetadataValidator
 
-from app.repositories.metadata_repository import (
-    MetadataRepository,
-)
-
-from app.validators.metadata_validator import (
-    MetadataValidator,
-)
 
 class MetadataService:
+    """Application use cases with an injected Repository abstraction."""
 
-    def __init__(self):
-        self.repository = MetadataRepository()
+    def __init__(self, repository: MetadataRepositoryProtocol):
+        self.repository = repository
 
     @staticmethod
     def _now_utc() -> datetime:
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
 
     @staticmethod
-    def _to_utc(dt: datetime) -> datetime:
-        if isinstance(dt, str):
-            dt = datetime.fromisoformat(dt.replace("Z", "+00:00"))
-        if dt.tzinfo is None:
-            return dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
-
-    @staticmethod
-    def _data_asset_key(data: dict) -> Optional[str]:
-        if data.get("data_asset_key"):
-            return str(data["data_asset_key"])
-
-        asset = data.get("data_asset") or {}
-        asset_name = asset.get("name") or data.get("table_name")
-        domain = data.get("business_domain") or data.get("domain")
-        if not asset_name:
-            return None
-        return f"{domain}.{asset_name}" if domain else str(asset_name)
+    def _to_utc(value: datetime | str) -> datetime:
+        if isinstance(value, str):
+            value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
     @staticmethod
     def _normalize_asset_data(data: dict) -> dict:
-        ownership = data.get("ownership")
-        if ownership and not data.get("owner_info"):
-            data["owner_info"] = {
-                "team": ownership["owner"],
-                "email": None,
-            }
-
-        source = data.get("source")
-        if source:
-            if not data.get("source_system"):
-                data["source_system"] = source["system"]
-            if not data.get("source_type"):
-                data["source_type"] = source["type"]
-
-        asset = data.get("data_asset")
-        if asset and not data.get("table_name"):
-            data["table_name"] = asset["name"]
-        elif data.get("table_name") and not asset:
-            data["data_asset"] = {
-                "name": data["table_name"],
-                "type": "table",
-            }
+        pairs = [
+            ("data_asset", "name", "table_name"),
+            ("source", "system", "source_system"),
+            ("source", "type", "source_type"),
+        ]
+        for nested, key, flat in pairs:
+            if data.get(nested):
+                value = data[nested][key]
+                if data.get(flat) and data[flat] != value:
+                    raise ValueError(f"{nested}.{key} e {flat} devem ser iguais.")
+                data[flat] = value
+        if data.get("table_name") and not data.get("data_asset"):
+            data["data_asset"] = {"name": data["table_name"], "type": "table"}
+        ownership, owner = data.get("ownership"), data.get("owner_info")
+        if ownership and owner and ownership["owner"] != owner["team"]:
+            raise ValueError("ownership.owner e owner_info.team devem ser iguais.")
+        if ownership and not owner:
+            data["owner_info"] = {"team": ownership["owner"], "email": None}
+        elif owner and not ownership:
+            data["ownership"] = {"owner": owner["team"], "steward": None}
+        if data.get("domain") is not None:
+            data["business_domain"] = data["domain"]
+        elif data.get("business_domain") is not None:
+            data["domain"] = data["business_domain"]
+        quality = data.get("quality")
+        freshness = quality.get("freshness") if quality else None
+        if freshness:
+            if data.get("freshness") and data["freshness"] != freshness["max_delay"]:
+                raise ValueError("freshness e quality.freshness.max_delay devem ser iguais.")
+            data["freshness"] = freshness["max_delay"]
+        elif "quality" in data and not data.get("freshness"):
+            data["freshness"] = None
         return data
+
+    @staticmethod
+    def _data_asset_key(data: dict) -> str:
+        name = data["table_name"]
+        domain = data.get("domain") or data.get("business_domain")
+        return f"{domain}.{name}" if domain else name
+
+    def _history(
+        self, data: dict, actor: str, change_type: Literal["CREATE", "UPDATE", "DELETE"]
+    ) -> dict:
+        values = {key: value for key, value in data.items() if key != "_id"}
+        values.update(
+            metadata_id=data["_id"],
+            changed_at=data["updated_at"],
+            changed_by=actor,
+            change_type=change_type,
+        )
+        if change_type == "DELETE":
+            values.update(deleted=True, deleted_at=data["updated_at"], deleted_by=actor)
+        return MetadataVersionEntry.model_validate(values).model_dump(by_alias=True)
 
     def create(self, payload: MetadataCreate, changed_by: str = "system") -> MetadataOut:
         data = self._normalize_asset_data(payload.model_dump(by_alias=True))
+        MetadataValidator.validate(MetadataCreate.model_validate(data))
         data["data_asset_key"] = self._data_asset_key(data)
-
-        if data["data_asset_key"]:
-            find_by_asset = getattr(self.repository, "get_by_data_asset_key", None)
-            current = (
-                find_by_asset(data["data_asset_key"])
-                if find_by_asset is not None
-                else None
-            )
-        else:
-            current = None
-        if current is None and payload.contract_name:
-            current = self.repository.get_by_contract_name(payload.contract_name)
+        if data.get("contract_version") is not None:
+            version_parts(data["contract_version"])
+        current = self.repository.get_by_data_asset_key(data["data_asset_key"])
         if current is not None:
-            data.pop("data_asset_key", None)
-            update_payload = MetadataUpdate(**data)
-            return self.update(current["_id"], update_payload, changed_by)
-
-        MetadataValidator.validate(data)
-
+            if not data.get("contract_version"):
+                raise DomainError("Já existe um metadado para essa tabela.")
+            validate_next_contract_version(
+                current.get("contract_version"), data["contract_version"], data["data_asset_key"]
+            )
+            data.pop("data_asset_key")
+            result = self.update(current["_id"], MetadataUpdate(**data), changed_by, replace=True)
+            if result is None:
+                raise DomainError(
+                    "Metadado alterado simultaneamente. Consulte novamente e tente outra vez."
+                )
+            return result
         now = self._now_utc()
-        data["created_at"] = now
-        data["updated_at"] = now
-        data["version"] = int(data.get("version", 1) or 1)
-
-        history_entry = MetadataVersionEntry(
-            version=int(data.get("version", 1) or 1),
-            metadata_id=str(uuid4()),
-            data_asset=data.get("data_asset"),
-            data_asset_key=data.get("data_asset_key"),
-            table_name=data.get("table_name"),
-            description=data.get("description"),
-            schema=data.get("schema", []),
-            tags=data.get("tags", []),
-            owner_info=data.get("owner_info"),
-            source_system=data.get("source_system"),
-            source_type=data.get("source_type"),
-            freshness=data.get("freshness"),
-            refresh_frequency=data.get("refresh_frequency"),
-            contract_name=data.get("contract_name"),
-            contract_version=data.get("contract_version"),
-            quality=data.get("quality"),
-            classification=data.get("classification"),
-            lifecycle=data.get("lifecycle"),
-            changed_at=self._to_utc(now),
-            changed_by=changed_by,
-            change_type="CREATE",
-        )
-
-        document = self.repository.create(
-            {**data, "_id": history_entry.metadata_id}
-        )
-        self.repository.create_history_entry(history_entry.model_dump(by_alias=True))
-
+        data.update(_id=str(uuid4()), version=1, created_at=now, updated_at=now)
+        document = self.repository.create(data)
+        self.repository.create_history_entry(self._history(data, changed_by, "CREATE"))
         return self._to_response(document)
-
-    def create_or_update_contract(
-        self, payload: MetadataCreate, changed_by: str = "system"
-    ) -> MetadataOut:
-        return self.create(payload, changed_by)
 
     def list(
         self,
         page: int = 1,
         page_size: int = 20,
-        domain: Optional[str] = None,
-        owner: Optional[str] = None,
-        table_name: Optional[str] = None,
-        source_system: Optional[str] = None,
-    ) -> tuple[List[MetadataOut], int]:
+        domain: str | None = None,
+        owner: str | None = None,
+        table_name: str | None = None,
+    ) -> tuple[builtins.list[MetadataOut], int]:
         filters = {
             key: value
             for key, value in {
                 "domain": domain,
                 "owner_info.team": owner,
                 "table_name": table_name,
-                "source_system": source_system,
             }.items()
             if value is not None
         }
-        skip = (page - 1) * page_size
-        documents = self.repository.list(filters, skip, page_size)
-        return [self._to_response(document) for document in documents], self.repository.count(filters)
+        documents = self.repository.list(filters, (page - 1) * page_size, page_size)
+        return [self._to_response(document) for document in documents], self.repository.count(
+            filters
+        )
 
-    def get_by_id(self, metadata_id: str) -> Optional[MetadataOut]:
-
+    def get_by_id(self, metadata_id: str) -> MetadataOut | None:
         document = self.repository.get_by_id(metadata_id)
-        if document is None:
-            return None
-        return self._to_response(document)
+        return self._to_response(document) if document is not None else None
+
+    def replace(
+        self, metadata_id: str, payload: MetadataReplace, changed_by: str
+    ) -> MetadataOut | None:
+        return self.update(
+            metadata_id,
+            MetadataUpdate(**payload.model_dump(by_alias=True)),
+            changed_by,
+            replace=True,
+        )
+
+    def patch(
+        self, metadata_id: str, payload: MetadataUpdate, changed_by: str
+    ) -> MetadataOut | None:
+        return self.update(metadata_id, payload, changed_by)
 
     def update(
-        self,
-        metadata_id: str,
-        payload: MetadataUpdate,
-        changed_by: str,
-        replace: bool = False,
-    ) -> Optional[MetadataOut]:
-
+        self, metadata_id: str, payload: MetadataUpdate, changed_by: str, replace: bool = False
+    ) -> MetadataOut | None:
         current = self.repository.get_by_id(metadata_id)
-
         if current is None:
             return None
-
-        update_data = payload.model_dump(
-            by_alias=True, exclude={"version"}, exclude_unset=not replace
-        )
-        update_data = self._normalize_asset_data(update_data)
-
-        merged = {**current, **update_data}
+        data = payload.model_dump(by_alias=True, exclude_unset=not replace)
+        if not data:
+            raise ValueError("Envie ao menos um campo para atualizar.")
+        if not replace and "schema" in data:
+            if not data["schema"]:
+                raise ValueError("schema não pode ser nulo ou vazio.")
+            names = [field["name"] for field in data["schema"]]
+            if len(names) != len(set(names)):
+                raise ValueError("Campo duplicado no schema.")
+            fields = {field["name"]: field for field in current["schema"]}
+            fields.update({field["name"]: field for field in data["schema"]})
+            data["schema"] = list(fields.values())
+        data = self._normalize_asset_data(data)
+        merged = {**current, **data}
+        if not replace and "quality" not in data and "freshness" in data and merged.get("quality"):
+            merged["quality"] = {
+                **merged["quality"],
+                "freshness": {"max_delay": data["freshness"]} if data["freshness"] else None,
+            }
+        if not replace and "source" not in data and merged.get("source"):
+            merged["source"] = {
+                **merged["source"],
+                "system": merged["source_system"],
+                "type": merged["source_type"],
+            }
+        public = {key: merged.get(key) for key in MetadataCreate.model_fields if key != "schema_"}
+        public["schema"] = merged.get("schema")
+        validated = MetadataCreate.model_validate(public)
+        MetadataValidator.validate(validated)
+        merged.update(validated.model_dump(by_alias=True))
         merged["data_asset_key"] = self._data_asset_key(merged)
-        MetadataValidator.validate(merged)
-
-        current_version = int(current.get("version", 0) or 0)
-        next_version = current_version + 1
-
-        history_entry = MetadataVersionEntry(
-            version=next_version,
-            metadata_id=metadata_id,
-            data_asset=merged.get("data_asset"),
-            data_asset_key=merged.get("data_asset_key"),
-            table_name=merged.get("table_name"),
-            description=merged.get("description"),
-            schema=merged.get("schema", []),
-            tags=merged.get("tags", []),
-            owner_info=merged.get("owner_info"),
-            source_system=merged.get("source_system"),
-            source_type=merged.get("source_type"),
-            freshness=merged.get("freshness"),
-            refresh_frequency=merged.get("refresh_frequency"),
-            contract_name=merged.get("contract_name"),
-            contract_version=merged.get("contract_version"),
-            quality=merged.get("quality"),
-            classification=merged.get("classification"),
-            lifecycle=merged.get("lifecycle"),
-            changed_at=self._to_utc(self._now_utc()),
-            changed_by=changed_by,
-            change_type="UPDATE",
+        if merged["data_asset_key"] != current["data_asset_key"]:
+            raise DomainError("A identidade da tabela é imutável; cadastre outro metadado.")
+        if current.get("contract_version") and merged.get("contract_version") is None:
+            raise ValueError("contract_version não pode ser removida de um contrato versionado.")
+        if merged.get("contract_version") is not None:
+            version_parts(merged["contract_version"])
+        if "contract_version" in data and data["contract_version"] != current.get(
+            "contract_version"
+        ):
+            validate_next_contract_version(
+                current.get("contract_version"), data["contract_version"], merged["data_asset_key"]
+            )
+        validate_schema_compatibility(
+            current,
+            merged,
+            allow_type_change=is_major_version_upgrade(
+                current.get("contract_version"), merged.get("contract_version")
+            ),
         )
-        self.repository.create_history_entry(history_entry.model_dump(by_alias=True))
-
-        update_data["version"] = next_version
-        update_data["data_asset_key"] = merged["data_asset_key"]
-        update_data["updated_at"] = self._now_utc()
-
-        updated = self.repository.update(metadata_id, update_data)
-
+        merged.update(version=current["version"] + 1, updated_at=self._now_utc())
+        updated = self.repository.update(metadata_id, merged)
+        if updated is None:
+            return None
+        self.repository.create_history_entry(self._history(updated, changed_by, "UPDATE"))
         return self._to_response(updated)
 
-    def list_history(self, metadata_id: str) -> List[MetadataVersionEntry]:
-        documents = self.repository.list_history(metadata_id)
-        return self._normalize_history(documents)
+    def list_history(self, metadata_id: str) -> builtins.list[MetadataVersionEntry]:
+        return self._normalize_history(self.repository.list_history(metadata_id))
 
-    def list_all_history(self) -> List[MetadataVersionEntry]:
-        documents = self.repository.list_all_history()
-        return self._normalize_history(documents)
+    def list_all_history(self) -> builtins.list[MetadataVersionEntry]:
+        return self._normalize_history(self.repository.list_all_history())
 
     def _normalize_history(
-        self, documents: List[dict]
-    ) -> List[MetadataVersionEntry]:
-        normalized = []
-        for source_document in documents:
-            document = dict(source_document)
-            if document.get("changed_at") is not None:
-                document["changed_at"] = self._to_utc(document["changed_at"])
-            if document.get("deleted_at") is not None:
-                document["deleted_at"] = self._to_utc(document["deleted_at"])
+        self, documents: builtins.list[dict]
+    ) -> builtins.list[MetadataVersionEntry]:
+        result = []
+        for source in documents:
+            document = dict(source)
+            for field in ("changed_at", "deleted_at"):
+                if document.get(field) is not None:
+                    document[field] = self._to_utc(document[field])
             document.setdefault("changed_by", "system")
-            normalized.append(MetadataVersionEntry.model_validate(document))
-        return normalized
+            result.append(MetadataVersionEntry.model_validate(document))
+        return result
 
     def delete(self, metadata_id: str, deleted_by: str = "system") -> bool:
         current = self.repository.get_by_id(metadata_id)
         if current is None:
             return False
-
-        now = self._now_utc()
-        deletion_entry = MetadataVersionEntry(
-            version=int(current.get("version", 0) or 0) + 1,
-            metadata_id=metadata_id,
-            data_asset=current.get("data_asset"),
-            data_asset_key=current.get("data_asset_key"),
-            table_name=current.get("table_name"),
-            description=current.get("description"),
-            schema=current.get("schema", []),
-            tags=current.get("tags", []),
-            owner_info=current.get("owner_info"),
-            source_system=current.get("source_system"),
-            source_type=current.get("source_type"),
-            freshness=current.get("freshness"),
-            refresh_frequency=current.get("refresh_frequency"),
-            contract_name=current.get("contract_name"),
-            contract_version=current.get("contract_version"),
-            quality=current.get("quality"),
-            classification=current.get("classification"),
-            lifecycle=current.get("lifecycle"),
-            deleted=True,
-            deleted_at=now,
-            deleted_by=deleted_by,
-            changed_at=now,
-            changed_by=deleted_by,
-            change_type="DELETE",
-        )
-        self.repository.create_history_entry(deletion_entry.model_dump(by_alias=True))
-        return self.repository.delete(metadata_id, deleted_by)
+        deleted = {**current, "version": current["version"] + 1, "updated_at": self._now_utc()}
+        self.repository.create_history_entry(self._history(deleted, deleted_by, "DELETE"))
+        return self.repository.delete(metadata_id)
 
     @staticmethod
-    def _to_response(document) -> MetadataOut:
-
-        return MetadataOut(
-            id=str(document["_id"]),
-            version=int(document.get("version", 1) or 1),
-            data_asset=document.get("data_asset"),
-            data_asset_key=document.get("data_asset_key"),
-            table_name=document["table_name"],
-            description=document.get("description"),
-            business_domain=document.get("business_domain"),
-            domain=document.get("domain"),
-            schema=document.get("schema", []),
-            tags=document.get("tags", []),
-            created_at=MetadataService._to_utc(document["created_at"]),
-            updated_at=MetadataService._to_utc(document["updated_at"]),
-            owner_info=document.get("owner_info"),
-            source_system=document.get("source_system"),
-            source_type=document.get("source_type"),
-            freshness=document.get("freshness"),
-            refresh_frequency=document.get("refresh_frequency"),
-            contract_name=document.get("contract_name"),
-            contract_version=document.get("contract_version"),
-            data_product=document.get("data_product"),
-            quality=document.get("quality"),
-            classification=document.get("classification"),
-            lifecycle=document.get("lifecycle"),
-        )
+    def _to_response(document: dict) -> MetadataOut:
+        data = {**document, "id": str(document["_id"])}
+        for field in ("created_at", "updated_at"):
+            data[field] = MetadataService._to_utc(data[field])
+        return MetadataOut.model_validate(data)

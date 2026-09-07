@@ -1,8 +1,10 @@
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
-from pymongo.errors import DuplicateKeyError
+from pymongo.errors import DuplicateKeyError, PyMongoError
 
 from app.exceptions.domain import DomainError
 
@@ -47,7 +49,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(ValueError)
     async def value_error_handler(request: Request, exc: ValueError) -> JSONResponse:
         return JSONResponse(
-            status_code=409,
+            status_code=422,
             content={"detail": str(exc)},
         )
 
@@ -61,7 +63,12 @@ def register_exception_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(DomainError)
-    async def domain_error_handler(
-        request: Request, exc: DomainError
-    ) -> JSONResponse:
+    async def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
         return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+    @app.exception_handler(PyMongoError)
+    async def database_error_handler(request: Request, exc: PyMongoError) -> JSONResponse:
+        logging.getLogger("metadata_catalog").error("database_operation_failed", exc_info=exc)
+        return JSONResponse(
+            status_code=503, content={"detail": "Banco de dados temporariamente indisponível."}
+        )

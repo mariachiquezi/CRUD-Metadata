@@ -1,93 +1,37 @@
-import re
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-
-class InputModel(BaseModel):
-    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid", populate_by_name=True)
-
-
-class SchemaField(InputModel):
-    name: str = Field(..., min_length=1)
-    type: str = Field(..., min_length=1)
-    nullable: bool = True
-    unique: bool = False
-    description: str | None = None
-
-
-class OwnerInfo(InputModel):
-    team: str = Field(..., min_length=1)
-    email: str | None = None
-
-    @field_validator("email")
-    @classmethod
-    def validate_email(cls, value: str | None) -> str | None:
-        if value is not None and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", value):
-            raise ValueError("email invalido")
-        return value
-
-
-class DataProduct(InputModel):
-    name: str = Field(..., min_length=1)
-    description: str | None = None
-
-
-class DataAsset(InputModel):
-    name: str = Field(..., min_length=1)
-    type: str = Field(default="table", min_length=1)
-
-
-class Ownership(InputModel):
-    owner: str = Field(..., min_length=1)
-    steward: str | None = None
-
-
-class Source(InputModel):
-    system: str = Field(..., min_length=1)
-    type: str = Field(..., min_length=1)
-    database: str | None = None
-    table: str | None = None
-
-
-class Freshness(BaseModel):
-    max_delay: str = Field(..., min_length=1)
-
-
-class CompletenessRule(BaseModel):
-    field: str = Field(..., min_length=1)
-    threshold: float = Field(..., ge=0, le=100)
-
-
-class Quality(BaseModel):
-    freshness: Freshness | None = None
-    completeness: list[CompletenessRule] = Field(default_factory=list)
-
-
-class Classification(BaseModel):
-    data_classification: str = Field(..., min_length=1)
-
-
-class Lifecycle(BaseModel):
-    status: str = Field(..., min_length=1)
+from app.models.data_asset import (
+    Classification,
+    DataAsset,
+    DataProduct,
+    InputModel,
+    Lifecycle,
+    OwnerInfo,
+    Ownership,
+    Quality,
+    SchemaField,
+    Source,
+    SourceType,
+    Tag,
+)
 
 
 class MetadataCreate(InputModel):
-    model_config = ConfigDict(populate_by_name=True, extra="forbid")
-
     data_asset: DataAsset | None = None
     table_name: str | None = Field(default=None, min_length=1)
     description: str | None = None
     business_domain: str | None = None
     domain: str | None = None
     schema_: list[SchemaField] = Field(default_factory=list, alias="schema")
-    tags: list[str] = Field(default_factory=list)
+    tags: list[Tag] = Field(default_factory=list)
     ownership: Ownership | None = None
     owner_info: OwnerInfo | None = None
     source: Source | None = None
     source_system: str | None = None
-    source_type: str | None = None
+    source_type: SourceType | None = None
     freshness: str | None = None
     refresh_frequency: str | None = None
     contract_name: str | None = None
@@ -99,20 +43,18 @@ class MetadataCreate(InputModel):
 
 
 class MetadataUpdate(InputModel):
-    model_config = ConfigDict(populate_by_name=True, extra="forbid")
-
     data_asset: DataAsset | None = None
     table_name: str | None = Field(default=None, min_length=1)
     description: str | None = None
     business_domain: str | None = None
     domain: str | None = None
     schema_: list[SchemaField] | None = Field(default=None, alias="schema")
-    tags: list[str] | None = None
+    tags: list[Tag] | None = None
     ownership: Ownership | None = None
     owner_info: OwnerInfo | None = None
     source: Source | None = None
     source_system: str | None = None
-    source_type: str | None = None
+    source_type: SourceType | None = None
     freshness: str | None = None
     refresh_frequency: str | None = None
     contract_name: str | None = None
@@ -149,14 +91,14 @@ class MetadataOut(BaseModel):
     business_domain: str | None = None
     domain: str | None = None
     schema_: list[SchemaField] = Field(default_factory=list, alias="schema")
-    tags: list[str] = Field(default_factory=list)
+    tags: list[Tag] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
     owner_info: OwnerInfo | None = None
     ownership: Ownership | None = None
     source: Source | None = None
     source_system: str | None = None
-    source_type: str | None = None
+    source_type: SourceType | None = None
     freshness: str | None = None
     refresh_frequency: str | None = None
     contract_name: str | None = None
@@ -193,10 +135,10 @@ class MetadataVersionEntry(BaseModel):
     ownership: Ownership | None = None
     source: Source | None = None
     schema_: list[SchemaField] = Field(default_factory=list, alias="schema")
-    tags: list[str] = Field(default_factory=list)
+    tags: list[Tag] = Field(default_factory=list)
     owner_info: OwnerInfo | None = None
     source_system: str | None = None
-    source_type: str | None = None
+    source_type: SourceType | None = None
     freshness: str | None = None
     refresh_frequency: str | None = None
     contract_name: str | None = None
@@ -214,7 +156,3 @@ class MetadataVersionEntry(BaseModel):
     @property
     def version(self) -> int:
         return self.metadata_version
-
-
-class SchemaHistoryEntry(MetadataVersionEntry):
-    pass

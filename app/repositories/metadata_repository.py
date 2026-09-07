@@ -1,106 +1,86 @@
-from typing import Any, Dict, List, Optional
+import builtins
+from typing import Any
 from uuid import uuid4
 
 from app.database.mongodb import mongo_database
 
 
 class MetadataRepository:
-
     metadata_collection_name = "metadata"
     history_collection_name = "metadata_history"
 
-    def __init__(self):
-        self.metadata_collection = mongo_database.get_collection(
-            self.metadata_collection_name
-        )
-        self.history_collection = mongo_database.get_collection(self.history_collection_name)
+    def __init__(self, database=None):
+        database = database if database is not None else mongo_database
+        self.metadata_collection = database.get_collection(self.metadata_collection_name)
+        self.history_collection = database.get_collection(self.history_collection_name)
 
     def create_indexes(self) -> None:
-        drop_index = getattr(self.metadata_collection, "drop_index", None)
-        if drop_index is not None:
-            try:
-                drop_index("contract_name_1_contract_version_1")
-            except Exception:
-                pass
-
         self.metadata_collection.create_index(
             "data_asset_key",
             unique=True,
             partialFilterExpression={"data_asset_key": {"$exists": True}},
         )
         self.history_collection.create_index(
-            [("metadata_id", 1), ("version", 1)], unique=True
+            [("metadata_id", 1), ("version", 1)],
+            unique=True,
         )
         self.metadata_collection.create_index("domain")
         self.metadata_collection.create_index("table_name")
         self.metadata_collection.create_index("owner_info.team")
 
-    def create(self, document: Dict[str, Any]) -> Dict[str, Any]:
-        document.setdefault("_id", str(uuid4()))
-        document.setdefault("version", 1)
-
-        self.metadata_collection.insert_one(document)
-
-        return document
-
     def list(
         self,
-        filters: Optional[Dict[str, Any]] = None,
+        filters: dict[str, Any] | None = None,
         skip: int = 0,
-        limit: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
-        cursor = self.metadata_collection.find(filters or {}).skip(skip)
+        limit: int | None = None,
+    ) -> builtins.list[dict[str, Any]]:
+        cursor = self.metadata_collection.find(filters or {}).sort("_id", 1).skip(skip)
+
         if limit is not None:
             cursor = cursor.limit(limit)
+
         return list(cursor)
 
-    def count(self, filters: Optional[Dict[str, Any]] = None) -> int:
+    def count(self, filters: dict[str, Any] | None = None) -> int:
         return self.metadata_collection.count_documents(filters or {})
 
-    def get_by_id(self, metadata_id: str) -> Optional[Dict[str, Any]]:
+    def get_by_id(self, metadata_id: str) -> dict[str, Any] | None:
         return self.metadata_collection.find_one({"_id": metadata_id})
 
-    def get_by_contract_name(self, contract_name: str) -> Optional[Dict[str, Any]]:
-        return self.metadata_collection.find_one({"contract_name": contract_name})
-
-    def get_by_data_asset_key(self, data_asset_key: str) -> Optional[Dict[str, Any]]:
+    def get_by_data_asset_key(
+        self,
+        data_asset_key: str,
+    ) -> dict[str, Any] | None:
         return self.metadata_collection.find_one({"data_asset_key": data_asset_key})
 
-    def update(
-        self, metadata_id: str, data: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
+    def list_history(
+        self,
+        metadata_id: str,
+    ) -> builtins.list[dict[str, Any]]:
+        return list(self.history_collection.find({"metadata_id": metadata_id}).sort("version", -1))
 
-        result = self.metadata_collection.find_one_and_update(
+    def list_all_history(self) -> builtins.list[dict[str, Any]]:
+        return list(self.history_collection.find({}).sort([("metadata_id", 1), ("version", -1)]))
+
+    def create(self, document: dict[str, Any]) -> dict[str, Any]:
+        document.setdefault("_id", str(uuid4()))
+        document.setdefault("version", 1)
+        self.metadata_collection.insert_one(document)
+        return document
+
+    def update(self, metadata_id: str, data: dict[str, Any]) -> dict[str, Any] | None:
+        # `_id` identifica o documento no MongoDB e não pode fazer parte do `$set`.
+        changes = {key: value for key, value in data.items() if key != "_id"}
+        return self.metadata_collection.find_one_and_update(
             {"_id": metadata_id},
-            {"$set": data},
+            {"$set": changes},
             return_document=True,
         )
 
-        return result
-
-    def create_history_entry(self, document: Dict[str, Any]) -> Dict[str, Any]:
+    def create_history_entry(self, document: dict[str, Any]) -> dict[str, Any]:
         self.history_collection.insert_one(document)
         return document
 
-    def list_history(self, metadata_id: str) -> List[Dict[str, Any]]:
-        return list(self.history_collection.find({"metadata_id": metadata_id}).sort("version", -1))
-
-    def list_all_history(self) -> List[Dict[str, Any]]:
-        return list(
-            self.history_collection.find({}).sort(
-                [("metadata_id", 1), ("version", -1)]
-            )
-        )
-
-    def delete(self, metadata_id: str, deleted_by: str) -> bool:
+    def delete(self, metadata_id: str) -> bool:
         result = self.metadata_collection.delete_one({"_id": metadata_id})
-        if result.deleted_count == 0:
-            return False
-
-        now = __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
-        self.history_collection.update_many(
-            {"metadata_id": metadata_id},
-            {"$set": {"deleted": True, "deleted_at": now, "deleted_by": deleted_by}},
-        )
-
-        return True
+        return result.deleted_count > 0
