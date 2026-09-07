@@ -19,18 +19,6 @@ class SchemaField(InputModel):
     description: str | None = None
 
 
-class OwnerInfo(InputModel):
-    team: str = Field(..., min_length=1)
-    email: str | None = None
-
-    @field_validator("email")
-    @classmethod
-    def validate_email(cls, value: str | None) -> str | None:
-        if value is not None and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", value):
-            raise ValueError("email invalido")
-        return value
-
-
 class DataProduct(InputModel):
     name: str = Field(..., min_length=1)
     description: str | None = None
@@ -44,6 +32,14 @@ class DataAsset(InputModel):
 class Ownership(InputModel):
     owner: str = Field(..., min_length=1)
     steward: str | None = None
+    email: str | None = None
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str | None) -> str | None:
+        if value is not None and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", value):
+            raise ValueError("email invalido")
+        return value
 
 
 class Source(InputModel):

@@ -29,6 +29,7 @@ class ContractDefinition(InputModel):
     domain: str = Field(min_length=1)
     schema_: list[SchemaField] = Field(alias="schema")
     tags: list[Tag] = Field(default_factory=list)
+    refresh_frequency: str | None = None
     quality: Quality | None = None
     classification: Classification | None = None
     lifecycle: Lifecycle | None = None

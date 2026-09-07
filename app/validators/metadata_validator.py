@@ -7,6 +7,6 @@ class MetadataValidator:
     def validate(metadata: MetadataCreate) -> None:
         if not metadata.table_name:
             raise ValueError("Campo 'table_name' é obrigatório.")
-        if metadata.owner_info is None:
-            raise ValueError("Campo 'owner_info.team' é obrigatório.")
+        if metadata.ownership is None:
+            raise ValueError("Campo 'ownership.owner' é obrigatório.")
         validate_schema(metadata.schema_, metadata.quality)

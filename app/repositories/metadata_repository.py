@@ -26,7 +26,7 @@ class MetadataRepository:
         )
         self.metadata_collection.create_index("domain")
         self.metadata_collection.create_index("table_name")
-        self.metadata_collection.create_index("owner_info.team")
+        self.metadata_collection.create_index("ownership.owner")
 
     def list(
         self,

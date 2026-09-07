@@ -22,7 +22,7 @@ O corpo de `POST /metadata` usa os mesmos campos internos do bloco `contract`. A
 }
 ```
 
-No YAML, `version` é convertido para `contract_version` durante a ingestão. No cadastro manual, a API faz a mesma conversão internamente. Os campos achatados antigos, como `table_name`, `owner_info`, `source_system` e `freshness`, continuam aceitos apenas para compatibilidade com clientes legados e não fazem parte do padrão recomendado.
+No YAML, `version` é convertido para `contract_version` durante a ingestão. No cadastro manual, a API faz a mesma conversão internamente. O bloco `ownership` é a única forma oficial de declarar ownership;
 
 Um exemplo completo desse corpo JSON está em [examples/employee_department.json](examples/employee_department.json).
 
@@ -90,6 +90,7 @@ contract:
 | `data_product` | Não | Produto que agrupa ou utiliza o ativo. Sua descrição tem escopo diferente da descrição da tabela. |
 | `ownership.owner` | Sim | Equipe responsável. |
 | `ownership.steward` | Não | Responsável por curadoria e documentação. |
+| `ownership.email` | Não | E-mail de contato da equipe responsável. |
 | `source.system` | Sim | Sistema de origem. |
 | `source.type` | Sim | `database`, `api`, `file` ou `stream`. |
 | `source.database`, `source.table` | Não | Localização física quando aplicável. A tabela física pode ter nome diferente do ativo lógico. |

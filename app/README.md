@@ -129,7 +129,7 @@ Use `PUT` quando quiser substituir o cadastro completo. Alterações incompatív
 
 O corpo de `POST /metadata` usa o mesmo formato do conteúdo de `contract` no YAML. No cadastro manual, remova apenas o invólucro `contract` e envie `version`, `data_asset`, `domain`, `ownership`, `source`, `schema`, `quality` e os demais blocos necessários. A API converte `version` para `contract_version` internamente.
 
-Campos achatados como `table_name`, `owner_info`, `source_system`, `source_type`, `business_domain` e `freshness` permanecem aceitos para compatibilidade com clientes antigos, mas não devem ser usados em novos cadastros.
+Campos achatados como `table_name`, `source_system`, `source_type`, `business_domain` e `freshness` permanecem aceitos para compatibilidade com clientes antigos, mas não devem ser usados em novos cadastros. O ownership é representado apenas pelo bloco `ownership`.
 
 ## Histórico
 

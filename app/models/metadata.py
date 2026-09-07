@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 from app.models.data_asset import (
     Classification,
@@ -9,7 +9,6 @@ from app.models.data_asset import (
     DataProduct,
     InputModel,
     Lifecycle,
-    OwnerInfo,
     Ownership,
     Quality,
     SchemaField,
@@ -19,7 +18,23 @@ from app.models.data_asset import (
 )
 
 
+def _normalize_contract_version_alias(value):
+    if not isinstance(value, dict):
+        return value
+    data = dict(value)
+    if "version" in data:
+        if "contract_version" in data and data["contract_version"] != data["version"]:
+            raise ValueError("version e contract_version devem ter o mesmo valor.")
+        data["contract_version"] = data.pop("version")
+    return data
+
+
 class MetadataCreate(InputModel):
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_version_alias(cls, value):
+        return _normalize_contract_version_alias(value)
+
     data_asset: DataAsset | None = None
     table_name: str | None = Field(default=None, min_length=1)
     description: str | None = None
@@ -28,14 +43,16 @@ class MetadataCreate(InputModel):
     schema_: list[SchemaField] = Field(default_factory=list, alias="schema")
     tags: list[Tag] = Field(default_factory=list)
     ownership: Ownership | None = None
-    owner_info: OwnerInfo | None = None
     source: Source | None = None
     source_system: str | None = None
     source_type: SourceType | None = None
     freshness: str | None = None
     refresh_frequency: str | None = None
     contract_name: str | None = None
-    contract_version: str | None = None
+    contract_version: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("version", "contract_version"),
+    )
     data_product: DataProduct | None = None
     quality: Quality | None = None
     classification: Classification | None = None
@@ -43,6 +60,11 @@ class MetadataCreate(InputModel):
 
 
 class MetadataUpdate(InputModel):
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_version_alias(cls, value):
+        return _normalize_contract_version_alias(value)
+
     data_asset: DataAsset | None = None
     table_name: str | None = Field(default=None, min_length=1)
     description: str | None = None
@@ -51,14 +73,16 @@ class MetadataUpdate(InputModel):
     schema_: list[SchemaField] | None = Field(default=None, alias="schema")
     tags: list[Tag] | None = None
     ownership: Ownership | None = None
-    owner_info: OwnerInfo | None = None
     source: Source | None = None
     source_system: str | None = None
     source_type: SourceType | None = None
     freshness: str | None = None
     refresh_frequency: str | None = None
     contract_name: str | None = None
-    contract_version: str | None = None
+    contract_version: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("version", "contract_version"),
+    )
     data_product: DataProduct | None = None
     quality: Quality | None = None
     classification: Classification | None = None
@@ -70,8 +94,8 @@ class MetadataReplace(MetadataCreate):
     def require_complete_metadata(self):
         if self.data_asset is None and self.table_name is None:
             raise ValueError("PUT exige data_asset ou table_name.")
-        if self.ownership is None and self.owner_info is None:
-            raise ValueError("PUT exige ownership ou owner_info.")
+        if self.ownership is None:
+            raise ValueError("PUT exige ownership.")
         if self.source is None and (not self.source_system or not self.source_type):
             raise ValueError("PUT exige source ou source_system/source_type.")
         if not self.schema_:
@@ -94,7 +118,6 @@ class MetadataOut(BaseModel):
     tags: list[Tag] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
-    owner_info: OwnerInfo | None = None
     ownership: Ownership | None = None
     source: Source | None = None
     source_system: str | None = None
@@ -136,7 +159,6 @@ class MetadataVersionEntry(BaseModel):
     source: Source | None = None
     schema_: list[SchemaField] = Field(default_factory=list, alias="schema")
     tags: list[Tag] = Field(default_factory=list)
-    owner_info: OwnerInfo | None = None
     source_system: str | None = None
     source_type: SourceType | None = None
     freshness: str | None = None
