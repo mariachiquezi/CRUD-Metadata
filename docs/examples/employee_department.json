@@ -49,7 +49,8 @@
     "system": "hr-system",
     "type": "database",
     "database": "hr_db",
-    "table": "employee_department"
+    "table": "employee_department",
+    "location": "postgresql://hr-db.internal:5432/hr_db"
   },
   "refresh_frequency": "weekly",
   "quality": {
