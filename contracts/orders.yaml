@@ -21,6 +21,8 @@ contract:
 
   domain: commerce
 
+  refresh_frequency: daily
+
   schema:
     - name: order_id
       type: string

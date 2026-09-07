@@ -1,0 +1,76 @@
+{
+  "data_asset": {
+    "name": "employee_department",
+    "type": "table"
+  },
+  "version": "1.1",
+  "description": "Informações dos departamentos e áreas dos colaboradores",
+  "domain": "people",
+  "schema": [
+    {
+      "name": "department_id",
+      "type": "string",
+      "nullable": false,
+      "unique": true,
+      "description": "Identificador único do departamento"
+    },
+    {
+      "name": "department_name",
+      "type": "string",
+      "nullable": false,
+      "unique": true,
+      "description": "Nome do departamento"
+    },
+    {
+      "name": "manager_name",
+      "type": "string",
+      "nullable": true,
+      "unique": false,
+      "description": "Nome do responsável pelo departamento"
+    },
+    {
+      "name": "employee_count",
+      "type": "integer",
+      "nullable": false,
+      "unique": false,
+      "description": "Quantidade de colaboradores no departamento"
+    }
+  ],
+  "tags": [
+    "employee",
+    "department",
+    "hr"
+  ],
+  "ownership": {
+    "owner": "human-resources",
+    "steward": "people-data-team"
+  },
+  "source": {
+    "system": "hr-system",
+    "type": "database",
+    "database": "hr_db",
+    "table": "employee_department"
+  },
+  "refresh_frequency": "weekly",
+  "quality": {
+    "freshness": {
+      "max_delay": "24h"
+    },
+    "completeness": [
+      {
+        "field": "department_id",
+        "threshold": 100
+      },
+      {
+        "field": "department_name",
+        "threshold": 100
+      }
+    ]
+  },
+  "classification": {
+    "data_classification": "internal"
+  },
+  "lifecycle": {
+    "status": "active"
+  }
+}

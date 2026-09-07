@@ -21,6 +21,8 @@ contract:
 
   domain: product
 
+  refresh_frequency: daily
+
   schema:
     - name: product_id
       type: string

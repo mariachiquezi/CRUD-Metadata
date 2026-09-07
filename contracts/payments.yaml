@@ -21,6 +21,8 @@ contract:
 
   domain: finance
 
+  refresh_frequency: hourly
+
   schema:
     - name: payment_id
       type: string
