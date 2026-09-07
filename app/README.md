@@ -182,7 +182,7 @@ python -m pytest -q
 
 ## Verificações de qualidade
 
-Instale as ferramentas de desenvolvimento com `pip install -r requirements-dev.txt` e execute:
+Instale as ferramentas de desenvolvimento com `pip install -r requirements.txt` e execute:
 
 ```bash
 ruff check app tests

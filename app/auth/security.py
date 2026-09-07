@@ -19,9 +19,7 @@ def authenticate_user(username: str, password: str) -> dict[str, str] | None:
 
 
 def create_access_token(user: dict[str, str]) -> str:
-    expires_at = datetime.now(UTC) + timedelta(
-        minutes=settings.access_token_expire_minutes
-    )
+    expires_at = datetime.now(UTC) + timedelta(minutes=settings.access_token_expire_minutes)
     payload = {"sub": user["username"], "role": user["role"], "exp": expires_at}
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
