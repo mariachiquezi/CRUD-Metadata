@@ -1,0 +1,66 @@
+contract:
+  data_asset:
+    name: payments
+    type: table
+  version: "1.0"
+  description: Pagamentos associados aos pedidos e seus estados de processamento.
+  tags: [finance, payments]
+
+  data_product:
+    name: payment-platform
+    description: "Transacoes financeiras dos pedidos"
+
+  ownership:
+    owner: finance-platform
+    steward: payment-team
+
+  source:
+    system: payment-gateway
+    type: api
+    location: https://payments.example.com/v1/payments
+
+  domain: finance
+
+  refresh_frequency: hourly
+
+  schema:
+    - name: payment_id
+      type: string
+      nullable: false
+      unique: true
+      description: "Identificador unico do pagamento"
+    - name: order_id
+      type: string
+      nullable: false
+      unique: false
+      description: "Pedido relacionado ao pagamento"
+    - name: amount
+      type: decimal
+      nullable: false
+      unique: false
+      description: "Valor da transacao"
+    - name: status
+      type: string
+      nullable: false
+      unique: false
+      description: "Status atual do pagamento"
+    - name: processed_at
+      type: datetime
+      nullable: true
+      unique: false
+      description: "Momento do processamento"
+
+  quality:
+    freshness:
+      max_delay: "15m"
+    completeness:
+      - field: payment_id
+        threshold: 100
+      - field: amount
+        threshold: 99.9
+
+  classification:
+    data_classification: confidential
+
+  lifecycle:
+    status: active

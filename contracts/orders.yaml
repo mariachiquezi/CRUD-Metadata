@@ -1,0 +1,61 @@
+contract:
+  data_asset:
+    name: orders
+    type: table
+  version: "1.0"
+  description: Pedidos realizados pelos clientes, com identificadores e valor total.
+  tags: [commerce, orders]
+
+  data_product:
+    name: order-platform
+    description: "Pedidos realizados pelos clientes"
+
+  ownership:
+    owner: commerce-platform
+    steward: order-team
+
+  source:
+    system: ecommerce
+    type: database
+    database: commerce_db
+
+  domain: commerce
+
+  refresh_frequency: daily
+
+  schema:
+    - name: order_id
+      type: string
+      nullable: false
+      unique: true
+      description: "Identificador unico do pedido"
+    - name: customer_id
+      type: string
+      nullable: false
+      unique: false
+      description: "Identificador do cliente"
+    - name: total_amount
+      type: decimal
+      nullable: false
+      unique: false
+      description: "Valor total do pedido"
+    - name: created_at
+      type: datetime
+      nullable: false
+      unique: false
+      description: "Data de criacao do pedido"
+
+  quality:
+    freshness:
+      max_delay: "1h"
+    completeness:
+      - field: order_id
+        threshold: 100
+      - field: customer_id
+        threshold: 99
+
+  classification:
+    data_classification: internal
+
+  lifecycle:
+    status: active

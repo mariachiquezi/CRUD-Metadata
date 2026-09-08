@@ -1,0 +1,41 @@
+contract:
+  data_asset:
+    name: inventory
+    type: table
+  version: "1.0"
+
+  data_product:
+    name: inventory-platform
+    description: "Controle de estoque de produtos"
+
+  source:
+    system: erp
+    type: database
+    database: inventory_db
+
+  domain: logistics
+
+  schema:
+    - name: product_id
+      type: string
+      nullable: false
+      unique: true
+      description: "Identificador do produto"
+    - name: quantity
+      type: integer
+      nullable: false
+      unique: false
+      description: "Quantidade em estoque"
+
+  quality:
+    freshness:
+      max_delay: "2h"
+    completeness:
+      - field: product_id
+        threshold: 100
+
+  classification:
+    data_classification: internal
+
+  lifecycle:
+    status: active
