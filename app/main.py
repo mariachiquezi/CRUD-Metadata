@@ -39,16 +39,16 @@ OPENAPI_TAGS = [
         "description": "Autenticação e geração de tokens JWT.",
     },
     {
+        "name": "contracts",
+        "description": "Ingestão de contratos de dados em YAML.",
+    },
+    {
         "name": "metadata",
         "description": "Cadastro e consulta dos metadados ativos.",
     },
     {
         "name": "metadata-history",
         "description": "Auditoria e evolução dos metadados ao longo do tempo.",
-    },
-    {
-        "name": "contracts",
-        "description": "Ingestão de contratos de dados em YAML.",
     },
     {
         "name": "health",
@@ -85,7 +85,6 @@ async def request_context(request: Request, call_next):
         ),
     )
     return response
-
 
 
 @app.get("/health/live", tags=["health"])
