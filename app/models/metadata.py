@@ -40,7 +40,7 @@ class MetadataCreate(InputModel):
 
 
 class MetadataUpdate(InputModel):
-    """Campos oficiais aceitos em uma atualização parcial."""
+    """Campos oficiais aceitos em uma atualização parcial (PATCH)."""
 
     data_asset: DataAsset | None = None
     domain: str | None = Field(default=None, min_length=1)
@@ -62,7 +62,7 @@ class MetadataUpdate(InputModel):
 
 
 class MetadataReplace(MetadataCreate):
-    """Representa a substituição completa de um metadado."""
+    """Representa a substituição completa de um metadado. (PUT)"""
 
 
 class MetadataOut(BaseModel):

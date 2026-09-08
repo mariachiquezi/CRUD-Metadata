@@ -54,10 +54,6 @@ OPENAPI_TAGS = [
         "name": "health",
         "description": "Verificações de disponibilidade da API e do MongoDB.",
     },
-    {
-        "name": "system",
-        "description": "Informações básicas da aplicação.",
-    },
 ]
 
 app = FastAPI(
@@ -90,10 +86,6 @@ async def request_context(request: Request, call_next):
     )
     return response
 
-
-@app.get("/", tags=["system"])
-def root():
-    return {"message": "Metadata Catalog API", "status": "ok"}
 
 
 @app.get("/health/live", tags=["health"])

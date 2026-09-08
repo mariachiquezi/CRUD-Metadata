@@ -11,7 +11,7 @@ class MongoDatabase:
             tz_aware=True,  # Faz o PyMongo preservar informações de fuso horário nos valores datetime
             serverSelectionTimeoutMS=5000,  # Tempo para encontrar um servidor disponível
             connectTimeoutMS=5000,  # Tempo para abrir a conexão
-            socketTimeoutMS=10000,  # Tempo para abrir a conexão
+            socketTimeoutMS=10000,  # Tempo para operações de leitura e escrita
         )
         self.database = self.client[settings.mongodb_db_name]
 
