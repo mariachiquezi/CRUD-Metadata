@@ -26,6 +26,7 @@ def test_contract_preserves_identity_and_native_column_type():
     # validar tipos aceitos no schema
     assert contract.schema_[0].type == "decimal(18,2)"
 
+
 # executar a mesma função varias vezes
 @pytest.mark.parametrize(
     "changes",
@@ -52,3 +53,12 @@ def test_quality_cannot_reference_unknown_column():
 def test_outer_contract_rejects_unknown_fields():
     with pytest.raises(ValueError):
         DataContract.model_validate({"contract": definition(), "unexpected": True})
+
+
+def test_contract_requires_the_official_data_asset_identity():
+    data = definition()
+    data.pop("data_asset")
+    data["name"] = "orders"
+
+    with pytest.raises(ValueError):
+        DataContract(contract=data)

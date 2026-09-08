@@ -82,7 +82,7 @@ contract:
 | Campo | Obrigatório | Regra e significado |
 | --- | --- | --- |
 | `contract` | Sim | Objeto raiz do arquivo. |
-| `data_asset.name` | Sim no formato recomendado | Identidade lógica do ativo. Não repita como `contract.name`. |
+| `data_asset.name` | Sim | Identidade lógica do ativo. |
 | `data_asset.type` | Não | Padrão `table`; outros tipos não vazios são aceitos. |
 | `version` | Sim | Texto com componentes numéricos, como `"1.0"`. Não é o contador interno de alterações do catálogo. |
 | `domain` | Sim | Domínio de negócio não vazio. |
@@ -100,10 +100,10 @@ contract:
 | `schema[].unique` | Não | Padrão `false`. |
 | `tags` | Não | Lista de textos não vazios. |
 | `refresh_frequency` | Não | Frequência esperada de atualização, como `daily`, `hourly` ou `weekly`. |
-| `quality.freshness.max_delay` | Se `freshness` for informado | Inteiro positivo seguido de `s`, `m`, `h` ou `d`, por exemplo `30s`, `15m`, `1h`, `2d`. |
+| `quality.freshness.max_delay` | Se o bloco `quality.freshness` for informado | Inteiro positivo seguido de `s`, `m`, `h` ou `d`, por exemplo `30s`, `15m`, `1h`, `2d`. |
 | `quality.completeness` | Não | Percentuais entre 0 e 100, uma regra por coluna, referenciando nomes presentes no schema. |
 | `classification.data_classification` | Se o bloco for informado | Texto não vazio. A aplicação não presume uma taxonomia corporativa universal. |
-| `lifecycle.status` | Se o bloco for informado | `active`, `deprecated` ou `draft`; o valor legado `ativo` é normalizado para `active`. |
+| `lifecycle.status` | Se o bloco for informado | `active`, `deprecated` ou `draft`. |
 
 Os tipos de coluna permanecem abertos para tipos nativos como `uuid`, `decimal(18,2)` ou `array<string>`. A comparação de compatibilidade usa o texto exato do tipo; não há equivalência automática entre `int` e `integer`. Os exemplos monetários usam `decimal`; isso não converte dados nem migra contratos previamente cadastrados como `float`.
 
@@ -111,7 +111,7 @@ Os tipos de coluna permanecem abertos para tipos nativos como `uuid`, `decimal(1
 
 - Campos desconhecidos são rejeitados, inclusive dentro dos objetos aninhados. Isso evita ignorar erros como `stewrad` em vez de `steward`.
 - Chaves YAML repetidas são rejeitadas antes que sobrescrevam valores. O parser usa um loader derivado de `SafeLoader`; tags que constroem objetos Python não são aceitas.
-- Os formatos antigos `contract.name` e, na ausência do ativo, `source.table` continuam aceitos como alternativas de entrada. São convertidos para `data_asset`; nomes lógicos contraditórios são rejeitados.
+- O formato oficial exige `data_asset.name`; `source.table` identifica apenas a tabela física da origem.
 - A identidade persistida continua sendo `domain + "." + data_asset.name`. Alterá-la exige cadastrar outro ativo. Ambientes que tenham o mesmo nome em vários bancos do mesmo domínio precisam rever essa identidade em uma migração específica.
 - Uma nova versão de contrato precisa avançar. `1.0` e `1.0.0` são comparadas como a mesma versão.
 - Remover coluna, adicionar coluna obrigatória ou tornar restrições existentes mais exigentes é rejeitado. A troca de tipo também é rejeitada em versões menores; ela só é permitida quando a versão principal aumenta, por exemplo, de `1.0` para `2.0`. A API informa os tipos anterior e solicitado e não altera o registro quando a compatibilidade falha.

@@ -30,8 +30,10 @@ class FakeService:
     def create(self, payload, username):
         return MetadataOut(
             id=str(uuid4()),
-            table_name="orders",
+            data_asset={"name": "orders", "type": "table"},
+            domain="commerce",
             ownership={"owner": "commerce"},
+            source={"system": "shop", "type": "database"},
             schema=[{"name": "order_id", "type": "string"}],
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
@@ -49,11 +51,18 @@ def test_viewer_cannot_create_metadata():
     response = TestClient(make_app(FakeService())).post(
         "/metadata",
         headers=auth_header("viewer"),
-        json={"table_name": "orders", "ownership": {"owner": "commerce"}},
+        json={
+            "data_asset": {"name": "orders", "type": "table"},
+            "domain": "commerce",
+            "ownership": {"owner": "commerce"},
+            "source": {"system": "shop", "type": "database"},
+            "schema": [{"name": "order_id", "type": "string"}],
+        },
     )
 
     assert response.status_code == 403
-    
+
+
 def test_editor_cannot_delete_metadata():
     response = TestClient(make_app(FakeService())).delete(
         "/metadata/123",

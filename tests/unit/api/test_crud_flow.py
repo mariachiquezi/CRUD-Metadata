@@ -41,29 +41,29 @@ def test_full_crud_preserves_audit_and_nested_fields(client):
     path = f"/metadata/{item['id']}"
     assert item["ownership"]["steward"] == "analytics"
     assert item["source"]["database"] == "sales"
-    
+
     assert client.get(path).json() == item
     replacement = payload()
     replacement.pop("description")
     replacement.pop("tags")
-    
+
     updated = client.put(path, json=replacement)
     assert updated.status_code == 200, updated.text
     assert updated.json()["description"] is None
     assert updated.json()["tags"] == []
     assert updated.json()["version"] == 2
-    
+
     patched = client.patch(path, json={"description": "Updated context"})
     assert patched.status_code == 200
     assert patched.json()["schema"] == item["schema"]
     assert patched.json()["version"] == 3
-    
+
     assert client.get("/metadata").json()["total"] == 1
-    
+
     assert client.delete(path).status_code == 200
-    
+
     assert client.get(path).status_code == 404
-    
+
     history = client.get(path + "/history").json()
     assert [entry["change_type"] for entry in history] == [
         "CREATE",
@@ -74,7 +74,7 @@ def test_full_crud_preserves_audit_and_nested_fields(client):
     assert history[0]["deleted"] is False
     assert history[-1]["deleted"] is True
     assert history[0]["source"]["database"] == "sales"
-    
+
     assert client.delete(path).status_code == 404
 
 
@@ -82,7 +82,11 @@ def test_duplicate_create_and_identity_change_return_conflict(client):
     item = client.post("/metadata", json=payload()).json()
     assert client.post("/metadata", json=payload()).status_code == 409
     assert (
-        client.patch(f"/metadata/{item['id']}", json={"table_name": "renamed"}).status_code == 409
+        client.patch(
+            f"/metadata/{item['id']}",
+            json={"data_asset": {"name": "renamed", "type": "table"}},
+        ).status_code
+        == 409
     )
 
 

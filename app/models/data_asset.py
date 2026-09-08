@@ -70,8 +70,3 @@ class Classification(InputModel):
 
 class Lifecycle(InputModel):
     status: Literal["active", "deprecated", "draft"]
-
-    @field_validator("status", mode="before")
-    @classmethod
-    def normalize_legacy_status(cls, value):
-        return "active" if value == "ativo" else value

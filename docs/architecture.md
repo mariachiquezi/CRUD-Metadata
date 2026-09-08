@@ -20,7 +20,7 @@ As rotas cuidam da autenticação, autorização, códigos HTTP e serialização
 
 1. O cliente envia uma requisição HTTP com o token JWT quando a rota exige autenticação.
 2. A rota valida o corpo ou os arquivos recebidos e identifica o usuário atual.
-3. O serviço executa as regras de negócio, normaliza campos legados e valida compatibilidade.
+3. O serviço executa as regras de negócio, valida o formato oficial e a compatibilidade do schema.
 4. O repositório consulta ou altera as collections `metadata` e `metadata_history`.
 5. A rota converte o resultado para a resposta pública da API.
 
@@ -28,7 +28,7 @@ No upload de contratos, o fluxo é `YAML -> ContractParser -> ContractDefinition
 
 ## Versionamento e histórico
 
-O documento ativo representa o estado atual do ativo. Cada alteração aceita cria uma entrada no histórico com o mesmo ID do metadado e incrementa `metadata_version`. A API mantém `version` como alias público por compatibilidade. Já `contract_version` é a versão do contrato de negócio e deve sempre avançar.
+O documento ativo representa o estado atual do ativo. Cada alteração aceita cria uma entrada no histórico com o mesmo ID do metadado e incrementa `metadata_version`. `version` identifica a versão do contrato recebido; `contract_version` é o nome interno persistido e deve sempre avançar.
 
 O histórico registra `changed_at`, `changed_by` e `change_type` (`CREATE`, `UPDATE` ou `DELETE`). A exclusão remove o documento ativo, mas preserva os registros históricos.
 
@@ -41,10 +41,22 @@ A troca de tipo de uma coluna é rejeitada em versões menores. Ela é permitida
 O índice único de `data_asset_key` impede dois metadados ativos para a mesma identidade. A API também compara a versão atual antes de aceitar uma alteração.
 
 
-## Modelos e compatibilidade de entrada
+## Modelos e formato de entrada
 
-As estruturas canônicas são aninhadas: `data_asset`, `ownership` e `source`, os contratos YAML devem usar a estrutura canônica.
+O formato oficial usa estruturas aninhadas: `data_asset`, `ownership`, `source` e `quality`.
 
 O cadastro manual em `POST /metadata` usa o mesmo conteúdo do bloco `contract` do YAML, sem o invólucro externo. Assim, a mesma definição pode ser enviada por arquivo ou diretamente como JSON. A única conversão interna é `version` para `contract_version`, pois o segundo nome distingue a versão do contrato da versão interna do metadado.
 
 As regras completas do contrato estão em [Contrato de dados](data-contract.md). A decisão sobre a identidade está documentada em [ADR 0001](adr/0001-data-asset-identity.md).
+
+## Organização da API
+
+Os endpoints são documentados por recurso para separar o estado atual do histórico:
+
+1. autenticação;
+2. metadados ativos;
+3. histórico de metadados;
+4. ingestão de contratos YAML;
+5. saúde da aplicação.
+
+Consulte [API HTTP](api.md) para ver os métodos, permissões, parâmetros, exemplos e códigos de resposta de cada grupo.

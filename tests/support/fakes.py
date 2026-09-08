@@ -1,5 +1,5 @@
 class FakeRepository:
-    """Repository em memória usado pelos testes unitários e de API."""
+    """Repositorio em memoria usado pelos testes unitarios e de API."""
 
     def __init__(self):
         self.documents = {}
@@ -30,12 +30,27 @@ class FakeRepository:
         self.documents[metadata_id].update(data)
         return self.documents[metadata_id]
 
+    @staticmethod
+    def _value_at(document, path):
+        value = document
+        for part in path.split("."):
+            if not isinstance(value, dict):
+                return None
+            value = value.get(part)
+        return value
+
     def list(self, filters=None, skip=0, limit=None):
-        values = list(self.documents.values())
-        return values[skip:][:limit]
+        filters = filters or {}
+        values = [
+            document
+            for document in self.documents.values()
+            if all(self._value_at(document, key) == value for key, value in filters.items())
+        ]
+        result = values[skip:]
+        return result if limit is None else result[:limit]
 
     def count(self, filters=None):
-        return len(self.documents)
+        return len(self.list(filters))
 
     def list_history(self, metadata_id):
         return [item for item in self.history if item["metadata_id"] == metadata_id]

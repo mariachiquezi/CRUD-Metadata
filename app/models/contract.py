@@ -2,7 +2,7 @@ from typing import Any, Literal
 
 from pydantic import Field, model_validator
 
-from app.domain.versioning import version_parts
+from app.domain.versioning import ContractVersionPolicy
 from app.models.data_asset import (
     Classification,
     DataAsset,
@@ -34,27 +34,9 @@ class ContractDefinition(InputModel):
     classification: Classification | None = None
     lifecycle: Lifecycle | None = None
 
-    @model_validator(mode="before")
-    @classmethod
-    def normalize_legacy_identity(cls, value):
-        if not isinstance(value, dict):
-            return value
-        data = dict(value)
-        legacy_name = data.pop("name", None)
-        asset = data.get("data_asset")
-        if isinstance(asset, dict) and legacy_name is not None:
-            if str(asset.get("name", "")).strip() != str(legacy_name).strip():
-                raise ValueError("name e data_asset.name devem identificar o mesmo ativo.")
-        if not asset:
-            source = data.get("source")
-            name = legacy_name or (source.get("table") if isinstance(source, dict) else None)
-            if name:
-                data["data_asset"] = {"name": name, "type": "table"}
-        return data
-
     @model_validator(mode="after")
     def validate_definition(self):
-        version_parts(self.version)
+        ContractVersionPolicy().parse(self.version)
         validate_schema(self.schema_, self.quality)
         return self
 

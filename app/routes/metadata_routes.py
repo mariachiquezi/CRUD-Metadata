@@ -17,7 +17,7 @@ from app.models.metadata import (
     MetadataVersionEntry,
 )
 
-router = APIRouter(prefix="/metadata", tags=["metadata"])
+router = APIRouter(prefix="/metadata")
 
 service = metadata_service
 
@@ -28,6 +28,7 @@ def get_metadata_service():
 
 @router.post(
     "",
+    tags=["metadata"],
     response_model=MetadataOut,
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_roles("admin", "editor"))],
@@ -42,6 +43,7 @@ def create_metadata(
 
 @router.get(
     "",
+    tags=["metadata"],
     response_model=MetadataListResponse,
     dependencies=[Depends(require_roles("admin", "editor", "viewer"))],
 )
@@ -50,16 +52,17 @@ def list_metadata(
     page_size: int = Query(20, ge=1, le=100),
     domain: str | None = None,
     owner: str | None = None,
-    table_name: str | None = None,
+    asset_name: str | None = None,
     catalog=Depends(get_metadata_service),
 ):
-    items, total = catalog.list(page, page_size, domain, owner, table_name)
+    items, total = catalog.list(page, page_size, domain, owner, asset_name)
 
     return MetadataListResponse(items=items, total=total, page=page, page_size=page_size)
 
 
 @router.get(
     "/history",
+    tags=["metadata-history"],
     response_model=list[MetadataVersionEntry],
     dependencies=[Depends(require_roles("admin", "editor", "viewer"))],
 )
@@ -69,6 +72,7 @@ def list_all_metadata_history(catalog=Depends(get_metadata_service)):
 
 @router.get(
     "/{metadata_id}",
+    tags=["metadata"],
     response_model=MetadataOut,
     dependencies=[Depends(require_roles("admin", "editor", "viewer"))],
 )
@@ -83,6 +87,7 @@ def get_metadata(metadata_id: str, catalog=Depends(get_metadata_service)):
 
 @router.get(
     "/{metadata_id}/history",
+    tags=["metadata-history"],
     response_model=list[MetadataVersionEntry],
     dependencies=[Depends(require_roles("admin", "editor", "viewer"))],
 )
@@ -100,6 +105,7 @@ def get_metadata_history(metadata_id: str, catalog=Depends(get_metadata_service)
 
 @router.put(
     "/{metadata_id}",
+    tags=["metadata"],
     response_model=MetadataOut,
     dependencies=[Depends(require_roles("admin", "editor"))],
 )
@@ -126,6 +132,7 @@ def update_metadata(
 
 @router.patch(
     "/{metadata_id}",
+    tags=["metadata"],
     response_model=MetadataOut,
     dependencies=[Depends(require_roles("admin", "editor"))],
 )
@@ -150,7 +157,11 @@ def patch_metadata(
     return item
 
 
-@router.delete("/{metadata_id}", dependencies=[Depends(require_roles("admin"))])
+@router.delete(
+    "/{metadata_id}",
+    tags=["metadata"],
+    dependencies=[Depends(require_roles("admin"))],
+)
 def delete_metadata(
     metadata_id: str,
     current_user: dict = Depends(get_current_user),

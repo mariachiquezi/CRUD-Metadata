@@ -44,26 +44,21 @@ Depois envie o token nas rotas protegidas como `Authorization: Bearer <token>`.
 
 ## Endpoints principais
 
-```text
-POST   /auth/login
-POST   /metadata
-GET    /metadata
-GET    /metadata/{id}
-GET    /metadata/history
-GET    /metadata/{id}/history
-PUT    /metadata/{id}
-PATCH  /metadata/{id}
-DELETE /metadata/{id}
-POST   /contracts/bulk
-GET    /health/live
-GET    /health/ready
-```
+Os endpoints estão agrupados por recurso na [documentação da API](docs/api.md):
+
+- autenticação: `POST /auth/login`;
+- metadados ativos: `POST`, `GET`, `PUT`, `PATCH` e `DELETE` em `/metadata`;
+- histórico: `GET /metadata/history` e `GET /metadata/{id}/history`;
+- contratos: `POST /contracts/bulk`;
+- saúde: `GET /health/live`, `GET /health/ready` e `GET /health`.
 
 ## Documentação técnica
 
 - [Guia completo da aplicação](app/README.md)
+- [API e endpoints](docs/api.md)
 - [Arquitetura e fluxo](docs/architecture.md)
 - [Contrato de dados YAML](docs/data-contract.md)
+- [Índice da documentação](docs/README.md)
 
 ## Testes e qualidade
 

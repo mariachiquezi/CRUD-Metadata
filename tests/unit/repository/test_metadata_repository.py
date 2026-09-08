@@ -15,7 +15,7 @@ class FakeCursor:
         return self
 
     def sort(self, field_or_fields, direction=None):
-        # ordenação 
+        # ordenação
         # O valor 1 representa ordem crescente. -1 decrescente
         if isinstance(field_or_fields, list):
             for field, order in reversed(field_or_fields):

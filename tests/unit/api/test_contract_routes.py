@@ -30,18 +30,22 @@ def make_app(service):
     return app
 
 
-class FakeService:    #-> OK
+class FakeService:  # -> OK
     def process(self, content, username):
         now = datetime.now(UTC)
         return MetadataOut(
             id=str(uuid4()),
-            table_name=content,
+            data_asset={"name": content, "type": "table"},
+            domain="test",
+            ownership={"owner": "test"},
+            source={"system": "test", "type": "file"},
+            schema=[{"name": "id", "type": "string"}],
             created_at=now,
             updated_at=now,
         )
 
 
-class FailingService:   #-> NO OK
+class FailingService:  # -> NO OK
     def process(self, content, username):
         raise ValueError("duplicate contract")
 
@@ -105,7 +109,7 @@ def test_bulk_upload_persists_contract_with_repository_write_flow():
 
     assert response.status_code == 200
     assert response.json()["items"][0]["status"] == "success"
-    assert response.json()["items"][0]["metadata"]["table_name"] == "customer"
+    assert response.json()["items"][0]["metadata"]["data_asset"]["name"] == "customer"
 
 
 def test_viewer_cannot_upload_contracts():

@@ -14,9 +14,4 @@ class ContractService:
 
     @staticmethod
     def _to_metadata(contract: ContractDefinition) -> MetadataCreate:
-        data = contract.model_dump(by_alias=True, exclude={"version"})
-        data["contract_version"] = contract.version
-        data["contract_name"] = contract.data_asset.name
-        if data["description"] is None and contract.data_product is not None:
-            data["description"] = contract.data_product.description
-        return MetadataCreate.model_validate(data)
+        return MetadataCreate.model_validate(contract.model_dump(by_alias=True))

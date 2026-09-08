@@ -3,9 +3,9 @@ from __future__ import annotations
 import builtins
 from uuid import uuid4
 
-from app.domain.metadata_evolution import prepare_update
-from app.domain.metadata_normalizer import data_asset_key, normalize_asset_data
-from app.domain.versioning import validate_next_contract_version, version_parts
+from app.domain.metadata_evolution import MetadataEvolutionService
+from app.domain.metadata_identity import DataAssetIdentity
+from app.domain.versioning import ContractVersionPolicy
 from app.exceptions.domain import DomainError
 from app.models.metadata import (
     MetadataCreate,
@@ -26,21 +26,28 @@ from app.validators.metadata_validator import MetadataValidator
 class MetadataService:
     """Orchestrates metadata use cases through the repository abstraction."""
 
-    def __init__(self, repository: MetadataRepositoryProtocol):
+    def __init__(
+        self,
+        repository: MetadataRepositoryProtocol,
+        evolution: MetadataEvolutionService | None = None,
+        version_policy: ContractVersionPolicy | None = None,
+    ):
+        self.version_policy = version_policy or ContractVersionPolicy()
         self.repository = repository
+        self.evolution = evolution or MetadataEvolutionService(version_policy=self.version_policy)
 
     def create(self, payload: MetadataCreate, changed_by: str = "system") -> MetadataOut:
-        data = normalize_asset_data(payload.model_dump(by_alias=True))
+        data = payload.model_dump(by_alias=True)
         MetadataValidator.validate(MetadataCreate.model_validate(data))
-        data["data_asset_key"] = data_asset_key(data)
+        data["data_asset_key"] = DataAssetIdentity.from_document(data).key
         if data.get("contract_version") is not None:
-            version_parts(data["contract_version"])
+            self.version_policy.parse(data["contract_version"])
 
         current = self.repository.get_by_data_asset_key(data["data_asset_key"])
         if current is not None:
             if not data.get("contract_version"):
                 raise DomainError("Já existe um metadado para essa tabela.")
-            validate_next_contract_version(
+            self.version_policy.validate_next(
                 current.get("contract_version"),
                 data["contract_version"],
                 data["data_asset_key"],
@@ -65,14 +72,14 @@ class MetadataService:
         page_size: int = 20,
         domain: str | None = None,
         owner: str | None = None,
-        table_name: str | None = None,
+        asset_name: str | None = None,
     ) -> tuple[builtins.list[MetadataOut], int]:
         filters = {
             key: value
             for key, value in {
                 "domain": domain,
                 "ownership.owner": owner,
-                "table_name": table_name,
+                "data_asset.name": asset_name,
             }.items()
             if value is not None
         }
@@ -109,7 +116,7 @@ class MetadataService:
         if current is None:
             return None
 
-        merged = prepare_update(current, payload, replace=replace)
+        merged = self.evolution.prepare_update(current, payload, replace=replace)
         merged.update(version=current["version"] + 1, updated_at=now_utc())
         updated = self.repository.update(metadata_id, merged)
         if updated is None:

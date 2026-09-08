@@ -84,32 +84,19 @@ Envie o token nas rotas protegidas:
 Authorization: Bearer <token>
 ```
 
-## Principais endpoints
+## Endpoints
 
-```text
-POST   /auth/login
-POST   /metadata
-GET    /metadata
-GET    /metadata/{id}
-GET    /metadata/history
-GET    /metadata/{id}/history
-PUT    /metadata/{id}
-PATCH  /metadata/{id}
-DELETE /metadata/{id}
-POST   /contracts/bulk
-GET    /health/live
-GET    /health/ready
-```
+Os endpoints estão organizados por recurso na [documentação da API](../docs/api.md):
 
-As rotas de leitura aceitam `admin`, `editor` e `viewer`. Criação e alteração aceitam `admin` e `editor`; exclusão exige `admin`. `/health/live` verifica se o processo responde. `/health/ready` e `/health` verificam também a conexão com o MongoDB.
+- **Autenticação:** `POST /auth/login`.
+- **Metadados ativos:** `POST`, `GET`, `PUT`, `PATCH` e `DELETE` em `/metadata`.
+- **Histórico:** `GET /metadata/history` e `GET /metadata/{id}/history`.
+- **Contratos:** `POST /contracts/bulk` para um ou vários arquivos YAML.
+- **Saúde:** `GET /health/live`, `GET /health/ready` e `GET /health`.
 
-`POST /contracts/bulk` aceita de 1 a 10 arquivos no campo multipart `files` e retorna o status individual de cada contrato. O envio de um único contrato usa a mesma rota e o mesmo formato de resposta.
+As rotas de leitura aceitam `admin`, `editor` e `viewer`. Criação e alteração aceitam `admin` e `editor`; exclusão exige `admin`. A documentação da API explica os parâmetros, corpos, respostas e códigos de erro de cada grupo.
 
-Quando todos os arquivos são processados, a rota retorna `200`. Se algum arquivo falhar, retorna `207` e informa o resultado de cada arquivo em `items`. O lote não é transacional.
-
-## Alteração parcial
-
-Use `PATCH` quando quiser alterar apenas alguns campos. Por exemplo, para mudar o ciclo de vida:
+Para alterar somente alguns campos, use `PATCH`. Por exemplo:
 
 ```http
 PATCH /metadata/{id}
@@ -129,11 +116,14 @@ Use `PUT` quando quiser substituir o cadastro completo. Alterações incompatív
 
 O corpo de `POST /metadata` usa o mesmo formato do conteúdo de `contract` no YAML. No cadastro manual, remova apenas o invólucro `contract` e envie `version`, `data_asset`, `domain`, `ownership`, `source`, `schema`, `quality` e os demais blocos necessários. A API converte `version` para `contract_version` internamente.
 
-Campos achatados como `table_name`, `source_system`, `source_type`, `business_domain` e `freshness` permanecem aceitos para compatibilidade com clientes antigos, mas não devem ser usados em novos cadastros. O ownership é representado apenas pelo bloco `ownership`.
+## Documentação do projeto
 
-## Histórico
+- [API e endpoints](../docs/api.md)
+- [Contrato de dados](../docs/data-contract.md)
+- [Arquitetura](../docs/architecture.md)
+- [Decisões de arquitetura](../docs/adr/)
 
-Cada evento possui `changed_by` e `change_type`: `CREATE`, `UPDATE` ou `DELETE`.
+Cada evento de histórico possui `changed_by` e `change_type`: `CREATE`, `UPDATE` ou `DELETE`. O endpoint de histórico e a diferença entre o documento ativo e as versões auditadas estão detalhados em [docs/api.md](../docs/api.md).
 
 ## Exemplo de contrato YAML
 

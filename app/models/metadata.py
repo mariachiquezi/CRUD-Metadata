@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.data_asset import (
     Classification,
@@ -13,45 +13,25 @@ from app.models.data_asset import (
     Quality,
     SchemaField,
     Source,
-    SourceType,
     Tag,
 )
 
 
-def _normalize_contract_version_alias(value):
-    if not isinstance(value, dict):
-        return value
-    data = dict(value)
-    if "version" in data:
-        if "contract_version" in data and data["contract_version"] != data["version"]:
-            raise ValueError("version e contract_version devem ter o mesmo valor.")
-        data["contract_version"] = data.pop("version")
-    return data
-
-
 class MetadataCreate(InputModel):
-    @model_validator(mode="before")
-    @classmethod
-    def normalize_version_alias(cls, value):
-        return _normalize_contract_version_alias(value)
+    """Formato oficial para cadastrar um metadado."""
 
-    data_asset: DataAsset | None = None
-    table_name: str | None = Field(default=None, min_length=1)
+    data_asset: DataAsset
+    domain: str = Field(min_length=1)
     description: str | None = None
-    business_domain: str | None = None
-    domain: str | None = None
-    schema_: list[SchemaField] = Field(default_factory=list, alias="schema")
+    schema_: list[SchemaField] = Field(alias="schema", min_length=1)
     tags: list[Tag] = Field(default_factory=list)
-    ownership: Ownership | None = None
-    source: Source | None = None
-    source_system: str | None = None
-    source_type: SourceType | None = None
-    freshness: str | None = None
+    ownership: Ownership
+    source: Source
     refresh_frequency: str | None = None
-    contract_name: str | None = None
     contract_version: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("version", "contract_version"),
+        validation_alias="version",
+        serialization_alias="contract_version",
     )
     data_product: DataProduct | None = None
     quality: Quality | None = None
@@ -60,28 +40,20 @@ class MetadataCreate(InputModel):
 
 
 class MetadataUpdate(InputModel):
-    @model_validator(mode="before")
-    @classmethod
-    def normalize_version_alias(cls, value):
-        return _normalize_contract_version_alias(value)
+    """Campos oficiais aceitos em uma atualização parcial."""
 
     data_asset: DataAsset | None = None
-    table_name: str | None = Field(default=None, min_length=1)
+    domain: str | None = Field(default=None, min_length=1)
     description: str | None = None
-    business_domain: str | None = None
-    domain: str | None = None
     schema_: list[SchemaField] | None = Field(default=None, alias="schema")
     tags: list[Tag] | None = None
     ownership: Ownership | None = None
     source: Source | None = None
-    source_system: str | None = None
-    source_type: SourceType | None = None
-    freshness: str | None = None
     refresh_frequency: str | None = None
-    contract_name: str | None = None
     contract_version: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("version", "contract_version"),
+        validation_alias="version",
+        serialization_alias="contract_version",
     )
     data_product: DataProduct | None = None
     quality: Quality | None = None
@@ -90,17 +62,7 @@ class MetadataUpdate(InputModel):
 
 
 class MetadataReplace(MetadataCreate):
-    @model_validator(mode="after")
-    def require_complete_metadata(self):
-        if self.data_asset is None and self.table_name is None:
-            raise ValueError("PUT exige data_asset ou table_name.")
-        if self.ownership is None:
-            raise ValueError("PUT exige ownership.")
-        if self.source is None and (not self.source_system or not self.source_type):
-            raise ValueError("PUT exige source ou source_system/source_type.")
-        if not self.schema_:
-            raise ValueError("PUT exige um schema não vazio.")
-        return self
+    """Representa a substituição completa de um metadado."""
 
 
 class MetadataOut(BaseModel):
@@ -108,23 +70,17 @@ class MetadataOut(BaseModel):
 
     id: str
     metadata_version: int = Field(default=1, alias="version")
-    data_asset: DataAsset | None = None
+    data_asset: DataAsset
     data_asset_key: str | None = None
-    table_name: str
     description: str | None = None
-    business_domain: str | None = None
-    domain: str | None = None
-    schema_: list[SchemaField] = Field(default_factory=list, alias="schema")
+    domain: str
+    schema_: list[SchemaField] = Field(alias="schema")
     tags: list[Tag] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
-    ownership: Ownership | None = None
-    source: Source | None = None
-    source_system: str | None = None
-    source_type: SourceType | None = None
-    freshness: str | None = None
+    ownership: Ownership
+    source: Source
     refresh_frequency: str | None = None
-    contract_name: str | None = None
     contract_version: str | None = None
     data_product: DataProduct | None = None
     quality: Quality | None = None
@@ -148,22 +104,16 @@ class MetadataVersionEntry(BaseModel):
 
     metadata_version: int = Field(..., alias="version")
     metadata_id: str
-    data_asset: DataAsset | None = None
+    data_asset: DataAsset
     data_asset_key: str | None = None
-    table_name: str | None = None
     description: str | None = None
-    domain: str | None = None
-    business_domain: str | None = None
+    domain: str
     data_product: DataProduct | None = None
-    ownership: Ownership | None = None
-    source: Source | None = None
-    schema_: list[SchemaField] = Field(default_factory=list, alias="schema")
+    ownership: Ownership
+    source: Source
+    schema_: list[SchemaField] = Field(alias="schema")
     tags: list[Tag] = Field(default_factory=list)
-    source_system: str | None = None
-    source_type: SourceType | None = None
-    freshness: str | None = None
     refresh_frequency: str | None = None
-    contract_name: str | None = None
     contract_version: str | None = None
     quality: Quality | None = None
     classification: Classification | None = None

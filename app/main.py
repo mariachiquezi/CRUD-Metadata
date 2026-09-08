@@ -33,7 +33,39 @@ async def lifespan(app: FastAPI):
         mongo_database.close()
 
 
-app = FastAPI(title="Metadata Catalog API", version="1.0.0", lifespan=lifespan)
+OPENAPI_TAGS = [
+    {
+        "name": "auth",
+        "description": "Autenticação e geração de tokens JWT.",
+    },
+    {
+        "name": "metadata",
+        "description": "Cadastro e consulta dos metadados ativos.",
+    },
+    {
+        "name": "metadata-history",
+        "description": "Auditoria e evolução dos metadados ao longo do tempo.",
+    },
+    {
+        "name": "contracts",
+        "description": "Ingestão de contratos de dados em YAML.",
+    },
+    {
+        "name": "health",
+        "description": "Verificações de disponibilidade da API e do MongoDB.",
+    },
+    {
+        "name": "system",
+        "description": "Informações básicas da aplicação.",
+    },
+]
+
+app = FastAPI(
+    title="Metadata Catalog API",
+    version="1.0.0",
+    lifespan=lifespan,
+    openapi_tags=OPENAPI_TAGS,
+)
 
 register_exception_handlers(app)
 
@@ -59,19 +91,19 @@ async def request_context(request: Request, call_next):
     return response
 
 
-@app.get("/")
+@app.get("/", tags=["system"])
 def root():
     return {"message": "Metadata Catalog API", "status": "ok"}
 
 
-@app.get("/health/live")
+@app.get("/health/live", tags=["health"])
 def liveness():
     # Verifica se a API responde, sem depender do MongoDB.
     return {"status": "ok"}
 
 
-@app.get("/health")
-@app.get("/health/ready")
+@app.get("/health", tags=["health"])
+@app.get("/health/ready", tags=["health"])
 def health_check():
     # Verifica a conexao com o banco e retorna 503 em caso de falha.
     try:

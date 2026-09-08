@@ -7,11 +7,11 @@ class MongoDatabase:
     def __init__(self):
         self.client: MongoClient = MongoClient(
             settings.mongodb_uri,
-            connect=False,
-            tz_aware=True,
-            serverSelectionTimeoutMS=5000,
-            connectTimeoutMS=5000,
-            socketTimeoutMS=10000,
+            connect=False,  # Impede que o MongoClient tente conectar imediatamente ao criar o objeto.
+            tz_aware=True,  # Faz o PyMongo preservar informações de fuso horário nos valores datetime
+            serverSelectionTimeoutMS=5000,  # Tempo para encontrar um servidor disponível
+            connectTimeoutMS=5000,  # Tempo para abrir a conexão
+            socketTimeoutMS=10000,  # Tempo para abrir a conexão
         )
         self.database = self.client[settings.mongodb_db_name]
 
